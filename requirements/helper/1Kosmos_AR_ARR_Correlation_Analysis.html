@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>1Kosmos AR and ARR Correlation Analysis</title>
+  <style>
+    @page { size: A4; margin: 16mm 15mm 18mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #172033; background: #fff; font: 10.4pt/1.55 "Segoe UI", Arial, sans-serif; }
+    h1,h2,h3 { color:#101828; page-break-after:avoid; }
+    h1 { margin:0 0 10px; font-size:27pt; line-height:1.1; letter-spacing:-1px; }
+    h2 { margin:25px 0 9px; padding-bottom:5px; border-bottom:2px solid #ff7300; font-size:16pt; }
+    h3 { margin:17px 0 6px; font-size:12pt; }
+    p { margin:6px 0 10px; }
+    ul,ol { margin:6px 0 12px 22px; padding:0; }
+    li { margin:3px 0; }
+    code { padding:1px 4px; border-radius:4px; color:#9a3f00; background:#fff3e8; font:9pt Consolas,monospace; }
+    pre { margin:8px 0 13px; padding:11px 13px; border:1px solid #e4e7ec; border-left:4px solid #ff7300; border-radius:7px; background:#f8fafc; font:8.7pt/1.5 Consolas,monospace; white-space:pre-wrap; page-break-inside:avoid; }
+    table { width:100%; margin:9px 0 16px; border-collapse:collapse; font-size:9.1pt; }
+    tr { page-break-inside:avoid; }
+    th,td { padding:6px 8px; border:1px solid #dfe3e8; text-align:left; vertical-align:top; }
+    th { color:#fff; background:#273142; }
+    tr:nth-child(even) td { background:#f8fafc; }
+    .cover { min-height:245mm; display:flex; flex-direction:column; justify-content:center; page-break-after:always; }
+    .brand { color:#ff7300; font-size:12pt; font-weight:800; letter-spacing:2px; }
+    .subtitle { max-width:610px; color:#667085; font-size:14pt; }
+    .meta { margin-top:34px; padding:16px 18px; border-left:5px solid #ff7300; background:#f8fafc; }
+    .meta div { margin:3px 0; }
+    .verdict { margin:15px 0 18px; padding:16px; border:1px solid #fdba74; border-radius:9px; color:#7c2d12; background:#fff7ed; page-break-inside:avoid; }
+    .flow { margin:13px 0 18px; padding:17px; border:1px solid #fed7aa; border-radius:9px; background:#fff7ed; text-align:center; font:9.8pt/1.9 Consolas,monospace; page-break-inside:avoid; }
+    .note { margin:11px 0; padding:10px 12px; border-radius:6px; color:#344054; background:#eef4ff; page-break-inside:avoid; }
+    .warning { margin:11px 0; padding:10px 12px; border-radius:6px; color:#7f1d1d; background:#fef2f2; page-break-inside:avoid; }
+    .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:12px 0 17px; }
+    .metric { padding:12px; border:1px solid #e4e7ec; border-radius:8px; background:#fafafa; page-break-inside:avoid; }
+    .metric strong { display:block; margin-top:4px; color:#101828; font-size:16pt; }
+    .small { color:#667085; font-size:9pt; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="brand">1KOSMOS</div>
+    <h1>AR Master Sheet and ARR Dashboard Correlation Analysis</h1>
+    <p class="subtitle">Analysis of <strong>AR Dashboard - Master Sheet - 15 June.xlsx</strong> and <strong>1Kosmos — ARR Dashboard.html</strong>, including common dimensions, missing transaction keys, business meaning, and recommended integration logic.</p>
+    <div class="meta">
+      <div><strong>Document:</strong> 1Kosmos AR–ARR Correlation Analysis</div>
+      <div><strong>AR source:</strong> AR Dashboard - Master Sheet - 15 June.xlsx</div>
+      <div><strong>ARR source:</strong> 1Kosmos — ARR Dashboard.html</div>
+      <div><strong>Assessment date:</strong> 22 June 2026</div>
+    </div>
+  </section>
+
+  <h2>1. Executive Conclusion</h2>
+  <div class="verdict">
+    <strong>Correlation exists, but the two files are not directly connected.</strong><br>
+    The ARR HTML is generated from Booking Database-style contract and monthly ARR data. It does not load the AR workbook and does not contain invoice, due-date, open-balance, or payment-event fields. However, both files describe many of the same customers, regions, and sales representatives. They can therefore be integrated at customer/account level after names are standardized.
+  </div>
+  <p>The files answer different questions:</p>
+  <table>
+    <thead><tr><th>ARR dashboard</th><th>AR master sheet</th></tr></thead>
+    <tbody>
+      <tr><td>How much recurring revenue is contracted?</td><td>How much invoiced money is unpaid?</td></tr>
+      <tr><td>How ARR changes through new, upsell, downsell, churn, and renewal events.</td><td>Which invoices are open, overdue, paid, or pending renewal/invoicing.</td></tr>
+      <tr><td>Commercial and revenue-retention intelligence.</td><td>Receivables, collection, and cash-risk intelligence.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2. Files Analyzed</h2>
+  <h3>2.1 AR Dashboard Master Sheet</h3>
+  <p>The workbook contains three functional sheets:</p>
+  <table>
+    <thead><tr><th>Sheet</th><th>Purpose</th><th>Observed data</th></tr></thead>
+    <tbody>
+      <tr><td>AR Aging</td><td>Current unpaid invoices and balances.</td><td>30 rows; customer, end user, region, sales rep, document date, invoice number, due date, open balance.</td></tr>
+      <tr><td>Payment History</td><td>Invoice and payment movements by invoice number.</td><td>340 meaningful rows; 150 invoice numbers; invoice entries are positive and payment entries are negative.</td></tr>
+      <tr><td>Renewal Pending</td><td>Commercial renewals or signed deals pending action.</td><td>5 rows; end user, pending period/status, amount, sales rep, region, remarks.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 ARR Dashboard HTML</h3>
+  <p>The HTML contains an embedded JavaScript object named <code>D</code>. It has 303 deals, 90 monthly periods, 80 unique end users, 21 sales representatives, and regions APAC, NAM, and OEM. Its latest embedded month is June 2026.</p>
+  <p>The deal structure contains fields such as:</p>
+  <pre>key_id, end_user, region, sales_person, size, industry,
+sub_product, booking_type, mode, contract_id, contract_name,
+order_status, rec_non_rec, term_start, term_end, arr, changes</pre>
+  <p>The HTML also contains aggregate ARR fields including current ARR, previous ARR, monthly ARR, monthly changes, new ARR, upsell, churn, downsell, GRR, NRR, active logos, regions, products, and sales-person analysis.</p>
+
+  <h2>3. AR Workbook Summary</h2>
+  <div class="metric-grid">
+    <div class="metric">Open AR balance<strong>$10.77M</strong></div>
+    <div class="metric">AR Aging rows<strong>30</strong></div>
+    <div class="metric">Payment-history invoices<strong>150</strong></div>
+    <div class="metric">Payment-history rows<strong>340</strong></div>
+    <div class="metric">Pending renewal amount<strong>$1.24M</strong></div>
+    <div class="metric">Pending renewal rows<strong>5</strong></div>
+  </div>
+  <p>Using 15 June 2026 as the workbook's analysis date, the open-balance aging profile is:</p>
+  <table>
+    <thead><tr><th>Aging bucket</th><th>Open balance</th></tr></thead>
+    <tbody>
+      <tr><td>Not yet due</td><td>$2,879,046.85</td></tr>
+      <tr><td>0–30 days overdue</td><td>$3,410,000.00</td></tr>
+      <tr><td>31–60 days overdue</td><td>$298,273.72</td></tr>
+      <tr><td>61–90 days overdue</td><td>$170,000.00</td></tr>
+      <tr><td>90+ days overdue</td><td>$4,011,980.00</td></tr>
+    </tbody>
+  </table>
+  <p>The largest observed open balances include Lowes ($4.01M), Concentrix Solutions Corporation ($3.41M), DMDC ($810K), Staples entries, and S&amp;P Global.</p>
+
+  <h2>4. Measured Correlation</h2>
+  <table>
+    <thead><tr><th>AR sheet</th><th>Customer/end-user overlap with ARR HTML</th><th>Sales-rep overlap</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td>AR Aging</td><td>19 of 21 normalized customer names (about 90.5%)</td><td>5 of 7 normalized rep names</td><td>Strong account-level relationship.</td></tr>
+      <tr><td>Payment History</td><td>37 of 37 normalized customer names (100%)</td><td>7 of 8 normalized rep names</td><td>Very strong historical account overlap.</td></tr>
+      <tr><td>Renewal Pending</td><td>2 of 5 direct normalized names</td><td>1 of 2 normalized rep names</td><td>Partial overlap; several values are aliases or commercial labels such as Rockwell_Upsell and Kotak.</td></tr>
+    </tbody>
+  </table>
+  <p>Examples of shared customers include Convera, Great Wolf Lodge, Vodafone, Kforce, Kotak Mahindra Bank, Lowes, Concentrix Solutions Corporation, Rockwell Automation, S&amp;P Global, Staples, DMDC, VF Services, Hitachi, Netsmart, University of Michigan, and The Auto Club Group.</p>
+  <div class="note"><strong>Name standardization was required.</strong> Examples include Rockwell Automation, Inc. → Rockwell Automation; Staples, Inc. → Staples; Concentrix → Concentrix Solutions Corporation; and Salesforce, Inc. → Salesforce.</div>
+
+  <h2>5. Direct Field Mapping</h2>
+  <table>
+    <thead><tr><th>AR field</th><th>ARR field</th><th>Mapping quality</th><th>Comment</th></tr></thead>
+    <tbody>
+      <tr><td>End User</td><td>end_user</td><td>Strong after normalization</td><td>Best common business dimension.</td></tr>
+      <tr><td>Region</td><td>region</td><td>Strong</td><td>NAM and APAC align directly. OEM may not appear in AR.</td></tr>
+      <tr><td>Sales Rep</td><td>sales_person</td><td>Strong with aliases</td><td>Some names or team labels need a mapping table.</td></tr>
+      <tr><td>Customer / Customer Name</td><td>No exact bill-to field in embedded deal object</td><td>Moderate</td><td>ARR end user can be used as fallback, but legal bill-to and end user are not always identical.</td></tr>
+      <tr><td>Renewal amount</td><td>ARR changes / renewal context</td><td>Business correlation only</td><td>Cannot be joined transaction-by-transaction without a contract identifier.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6. Fields with No Direct Match</h2>
+  <table>
+    <thead><tr><th>AR-only field</th><th>Why it matters</th><th>ARR HTML status</th></tr></thead>
+    <tbody>
+      <tr><td>Invoice number / document number</td><td>Provides an exact receivable transaction key.</td><td>Not present.</td></tr>
+      <tr><td>Invoice date</td><td>Identifies billing timing.</td><td>Not present.</td></tr>
+      <tr><td>Due date</td><td>Required for aging and overdue calculations.</td><td>Not present.</td></tr>
+      <tr><td>Open balance</td><td>Measures unpaid receivables.</td><td>Not present.</td></tr>
+      <tr><td>Payment type and payment amount</td><td>Supports collection and days-to-pay analysis.</td><td>Not present.</td></tr>
+      <tr><td>Renewal status and remarks</td><td>Explains pending commercial actions.</td><td>Not present as structured source fields.</td></tr>
+    </tbody>
+  </table>
+  <div class="warning"><strong>No exact transaction join currently exists.</strong> The ARR HTML has Contract ID but the AR workbook has Invoice Number. Neither file supplies an invoice-to-contract bridge. Matching only by customer can combine unrelated contracts for the same account.</div>
+
+  <h2>7. Meaningful Business Correlations</h2>
+  <h3>7.1 ARR versus open receivables</h3>
+  <p>Joining by a canonical customer identifier allows the dashboard to show contracted recurring revenue alongside unpaid balance:</p>
+  <pre>AR exposure ratio = Open AR balance / Current ARR</pre>
+  <p>A high ratio can identify accounts where a large part of annual recurring revenue is exposed to collection risk.</p>
+
+  <h3>7.2 Overdue AR as churn or renewal risk</h3>
+  <p>Overdue invoices do not automatically cause churn, but they provide a useful risk signal. Customers with high ARR and severely overdue balances can be highlighted for Finance, Customer Success, and Sales coordination.</p>
+
+  <h3>7.3 Payment behavior and customer health</h3>
+  <p>Payment History can produce average days to pay, late-payment frequency, outstanding invoice count, and collection trend. These can enrich Customer 360 and expansion-risk models in the ARR dashboard.</p>
+
+  <h3>7.4 Renewal Pending and ARR forecast</h3>
+  <p>The Renewal Pending sheet is commercially closer to ARR than the other AR sheets. Pending annual renewals, multi-year installments, and signed-but-not-invoiced deals can enrich forecast and at-risk views. A contract-level key is still needed for reliable automation.</p>
+
+  <h2>8. Recommended Integrated Data Model</h2>
+  <div class="flow">
+    Booking Database → ARR Contract / Monthly ARR tables<br>
+    AR Aging → Open Invoice table<br>
+    Payment History → Invoice Payment Event table<br>
+    Renewal Pending → Renewal Risk table<br>
+    All tables → Canonical Customer + Sales Rep + Region dimensions<br>
+    Canonical dimensions → Combined ARR and AR Dashboard APIs
+  </div>
+  <table>
+    <thead><tr><th>Recommended table</th><th>Key fields</th></tr></thead>
+    <tbody>
+      <tr><td>Customer</td><td>customer_id, canonical_name, legal_name, end_user_name, aliases</td></tr>
+      <tr><td>ARR Contract</td><td>contract_id, customer_id, product, region, sales_rep, monthly_arr</td></tr>
+      <tr><td>AR Invoice</td><td>invoice_number, customer_id, invoice_date, due_date, original_amount, open_balance</td></tr>
+      <tr><td>Payment Event</td><td>invoice_number, event_date, event_type, amount</td></tr>
+      <tr><td>Renewal Risk</td><td>customer_id, contract_id when available, status, pending_amount, remarks</td></tr>
+      <tr><td>Customer Alias</td><td>source_system, source_name, customer_id</td></tr>
+    </tbody>
+  </table>
+
+  <h2>9. Required Join Strategy</h2>
+  <ol>
+    <li>Create a permanent canonical customer ID.</li>
+    <li>Maintain aliases such as Staples, Staples Inc., and legal bill-to names.</li>
+    <li>Map sales-team aliases such as CS Team to responsible owners when required.</li>
+    <li>Add Contract ID or customer master ID to the AR workbook.</li>
+    <li>Prefer Invoice Number → Contract ID mapping when one invoice relates to a specific contract.</li>
+    <li>Do not rely on fuzzy customer names as the final production join.</li>
+  </ol>
+  <p>Suggested temporary POC matching priority:</p>
+  <pre>1. Exact canonical customer ID
+2. Exact normalized end-user name
+3. Approved customer-alias mapping
+4. Manual review
+5. Never auto-join on fuzzy similarity alone</pre>
+
+  <h2>10. Proposed Combined Dashboard KPIs</h2>
+  <table>
+    <thead><tr><th>KPI</th><th>Calculation</th></tr></thead>
+    <tbody>
+      <tr><td>Total ARR</td><td>Sum of latest monthly ARR.</td></tr>
+      <tr><td>Total Open AR</td><td>Sum of open invoice balances.</td></tr>
+      <tr><td>Overdue AR</td><td>Open balance where due date is before the selected as-of date.</td></tr>
+      <tr><td>90+ Day AR</td><td>Open balance overdue by more than 90 days.</td></tr>
+      <tr><td>AR Exposure Ratio</td><td>Total Open AR ÷ Total ARR.</td></tr>
+      <tr><td>High-Risk ARR</td><td>ARR from customers with severe overdue balances or renewal issues.</td></tr>
+      <tr><td>Average Days to Pay</td><td>Average payment date minus invoice date or due date, depending on policy.</td></tr>
+      <tr><td>Pending Renewal Value</td><td>Sum of Renewal Pending amount.</td></tr>
+      <tr><td>Signed but Not Invoiced</td><td>Renewal rows with that status.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>11. Suggested Combined Customer 360</h2>
+  <p>For each customer, a combined view could display:</p>
+  <ul>
+    <li>Current ARR and monthly ARR movement.</li>
+    <li>Products, contracts, region, and sales owner.</li>
+    <li>Total open balance and overdue aging buckets.</li>
+    <li>Open invoices and payment history.</li>
+    <li>Average payment delay and recent late-payment pattern.</li>
+    <li>Pending renewal status, amount, and remarks.</li>
+    <li>Risk label such as Healthy, Watch, High Risk, or Action Required.</li>
+  </ul>
+
+  <h2>12. Final Assessment</h2>
+  <p>The two files are highly related from a customer and account-management perspective, but they represent different financial processes:</p>
+  <ul>
+    <li><strong>ARR</strong> measures recurring revenue value and movement.</li>
+    <li><strong>AR</strong> measures invoicing, unpaid balances, and payment collection.</li>
+  </ul>
+  <p>The observed customer overlap is strong enough to support a combined POC. Production integration should add canonical customer IDs and an invoice-to-contract bridge. Until those identifiers exist, AR and ARR should be correlated at customer level and clearly labeled as an account-level relationship rather than an exact contract-level reconciliation.</p>
+
+  <p class="small">Generated from the supplied AR master workbook and ARR dashboard HTML on 22 June 2026.</p>
+</body>
+</html>

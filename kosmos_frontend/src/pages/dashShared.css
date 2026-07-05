@@ -1,0 +1,372 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Shared Dashboard Shell — used by ARR_Main, ARMain, PipelineMain
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell wrapper ─────────────────────────────────────────────────────── */
+.dash-shell {
+  min-height: calc(100vh - var(--nav-h, 60px));
+  background: var(--bg, #f0f2f5);
+}
+
+/* ── Sub-navigation (sticky below main navbar) ─────────────────────────── */
+.dash-subnav {
+  position: sticky;
+  top: var(--nav-h, 52px);
+  z-index: 90;
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+  border-bottom: 1px solid #dddfe2;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  padding: 0 20px;
+  gap: 0;
+  min-height: var(--subnav-h, 42px);
+}
+
+/* ── Tab strip ─────────────────────────────────────────────────────────── */
+.dash-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dash-tabs::-webkit-scrollbar { display: none; }
+
+.dash-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0 12px;
+  height: var(--subnav-h, 42px);
+  font-size: 13px;
+  font-weight: 600;
+  color: #65676b;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .14s ease, border-color .14s ease;
+  font-family: inherit;
+}
+
+.dash-tab:hover { color: #050505; }
+
+.dash-tab.active {
+  color: #1877f2;
+  border-bottom-color: #1877f2;
+}
+
+.dash-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .14s ease, border-color .14s ease;
+}
+
+/* ── Sub-nav right actions ─────────────────────────────────────────────── */
+.dash-subnav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 16px;
+  flex-shrink: 0;
+}
+
+.dash-import-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1.5px solid #1877f2;
+  background: #fff;
+  color: #1877f2;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .13s ease, color .13s ease;
+  font-family: inherit;
+}
+
+.dash-import-btn:hover:not(:disabled) {
+  background: #1877f2;
+  color: #fff;
+}
+
+.dash-import-btn:disabled,
+.dash-import-btn.loading {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ── Filter bar ────────────────────────────────────────────────────────── */
+.dash-filterbar {
+  position: sticky;
+  top: calc(var(--nav-h, 52px) + var(--subnav-h, 42px));
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #dddfe2;
+  padding: 8px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+/* "Filters" icon + label at the left */
+.dash-fb-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: #65676b;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Vertical divider between label and filter groups */
+.dash-fb-divider {
+  width: 1px;
+  height: 24px;
+  background: #dddfe2;
+  flex-shrink: 0;
+}
+
+/* Each filter: label stacked above select */
+.dash-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dash-filter-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #65676b;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  white-space: nowrap;
+  padding-left: 3px;
+}
+
+.dash-filter-select {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1.5px solid #dddfe2;
+  border-radius: 8px;
+  padding: 5px 28px 5px 9px;
+  font-size: 12.5px;
+  color: #050505;
+  background: #f7f8fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2365676b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .13s ease, box-shadow .13s ease, background .13s ease;
+  min-width: 130px;
+  font-family: inherit;
+}
+
+.dash-filter-select:hover:not(:focus) { border-color: #bcc0c4; }
+
+.dash-filter-select:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 3px rgba(24,119,242,.1);
+  background-color: #fff;
+}
+
+.dash-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.5px solid #dddfe2;
+  border-radius: 8px;
+  background: #fff;
+  color: #65676b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color .13s ease, color .13s ease, background .13s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.dash-filter-reset:hover {
+  border-color: #d32f2f;
+  color: #d32f2f;
+  background: #fff5f5;
+}
+
+.dash-week-badge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1877f2;
+  background: #e7f3ff;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ── Notice ────────────────────────────────────────────────────────────── */
+.dash-notice {
+  margin: 14px 24px;
+  padding: 11px 16px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────── */
+.dash-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 20px;
+  color: #65676b;
+  font-size: 0;
+  font-weight: 500;
+}
+
+.dash-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid #dddfe2;
+  border-top-color: #1877f2;
+  border-radius: 50%;
+  animation: dash-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dash-spin { to { transform: rotate(360deg); } }
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+.dash-empty {
+  max-width: 480px;
+  margin: 60px auto;
+  padding: 48px 36px;
+  background: #fff;
+  border: 1px solid #dddfe2;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  text-align: center;
+}
+
+.dash-empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: #e7f3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.dash-empty h2 {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  color: #050505;
+  margin-bottom: 8px;
+}
+
+.dash-empty p {
+  color: #65676b;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 24px;
+}
+
+.dash-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 8px;
+  background: #1877f2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .14s ease;
+  font-family: inherit;
+}
+
+.dash-empty-btn:hover:not(:disabled) { background: #1565d8; }
+.dash-empty-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.dash-import-msg {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #15803d;
+}
+
+.dash-import-inline-msg {
+  font-size: 12px;
+  color: #65676b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ── Shared search input ───────────────────────────────────────────────── */
+.dash-search {
+  background: #fff;
+  border: 1.5px solid #dddfe2;
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 13px;
+  color: #050505;
+  outline: none;
+  min-width: 180px;
+  font-family: inherit;
+  transition: border-color .13s ease, box-shadow .13s ease;
+}
+.dash-search::placeholder { color: #65676b; }
+.dash-search:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 3px rgba(24,119,242,.1);
+}
+
+/* ── Content wrapper ───────────────────────────────────────────────────── */
+.dash-content {
+  padding: 16px 20px 48px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dash-subnav    { padding: 0 14px; }
+  .dash-filterbar { padding: 10px 14px; }
+  .dash-content   { padding: 14px 14px 48px; }
+  .dash-empty     { margin: 32px 16px; padding: 36px 20px; }
+}
+
+@media (max-width: 640px) {
+  .dash-tab         { padding: 0 10px; font-size: 13px; }
+  .dash-filterbar   { gap: 8px 12px; }
+  .dash-fb-label    { display: none; }
+  .dash-fb-divider  { display: none; }
+  .dash-filter-select { min-width: 100px; }
+}

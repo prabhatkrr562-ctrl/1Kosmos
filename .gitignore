@@ -1,0 +1,28 @@
+# Duplicate/backup folders and archives
+1Kosmos/
+1Kosmos.zip
+
+# Dashboard exports with sensitive business data
+compare 1/
+compare_2/
+compare_3/
+
+# Python
+kosmos/venv/
+**/__pycache__/
+*.pyc
+db.sqlite3
+
+# Node
+kosmos_frontend/node_modules/
+kosmos_frontend/build/
+
+# Logs
+*.log
+*.err.log
+
+# Financial data files (keep docs/PDFs, exclude raw data exports)
+requirements/*.xlsx
+requirements/*.csv
+requirements/helper/*.xlsx
+requirements/helper/*.csv

@@ -1,0 +1,307 @@
+/* ── Top Navigation Bar ──────────────────────────────────────────────────── */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--nav-h, 52px);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* ── Logo ──────────────────────────────────────────────────────────────── */
+.nb-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+  margin-right: 28px;
+}
+
+.nb-brand-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  padding: 4px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  flex-shrink: 0;
+}
+
+.nb-logo-text { display: flex; flex-direction: column; gap: 1px; }
+
+.nb-name {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 800;
+  color: #050505;
+  line-height: 1.1;
+  letter-spacing: -.2px;
+}
+
+.nb-sub {
+  font-size: 10px;
+  color: #ef0000;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+}
+
+/* ── Nav Links ─────────────────────────────────────────────────────────── */
+.nb-links {
+  display: flex;
+  list-style: none;
+  gap: 2px;
+  flex: 1;
+}
+
+.nb-links a {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius, 8px);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  text-decoration: none;
+  transition: background .12s ease, color .12s ease;
+}
+
+.nb-links a:hover { background: #f9fafb; color: #ef0000; }
+.nb-links a.active { background: #ef0000; color: #fff; box-shadow: 0 8px 18px rgba(239, 0, 0, 0.18); }
+
+/* ── Profile / Right ───────────────────────────────────────────────────── */
+.nb-right {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nb-avatar-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+}
+
+.nb-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--display);
+  transition: opacity .12s ease;
+  user-select: none;
+}
+
+.nb-avatar-btn:hover .nb-avatar { background: #ef0000; opacity: 1; }
+
+/* ── Dropdown Panel ────────────────────────────────────────────────────── */
+.nb-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 288px;
+  background: #fff;
+  border: 1px solid var(--border, #dddfe2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.06);
+  overflow: hidden;
+  z-index: 200;
+  animation: nb-pop .16s cubic-bezier(0.34,1.2,0.64,1);
+}
+
+@keyframes nb-pop {
+  from { opacity: 0; transform: translateY(-10px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+/* Profile header */
+.nb-dd-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 14px;
+}
+
+.nb-dd-avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--display);
+  flex-shrink: 0;
+}
+
+.nb-dd-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.nb-dd-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #050505;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-dd-email {
+  font-size: 12px;
+  color: #65676b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Divider */
+.nb-dd-divider { height: 1px; background: #f0f2f5; }
+
+/* Section */
+.nb-dd-section { padding: 6px 8px; }
+
+.nb-dd-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #65676b;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  padding: 6px 8px 4px;
+}
+
+.nb-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #050505;
+  cursor: pointer;
+  text-align: left;
+  transition: background .1s ease;
+}
+
+.nb-dd-item:hover { background: #f0f2f5; }
+
+.nb-dd-item.active {
+  background: #fff1f1;
+  color: #ef0000;
+  font-weight: 600;
+}
+
+.nb-dd-item.active .nb-dd-icon-wrap {
+  background: #fee2e2;
+  color: #ef0000;
+}
+
+.nb-dd-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e4e6ea;
+  color: #444950;
+  flex-shrink: 0;
+}
+
+/* Footer / Sign out */
+.nb-dd-footer { padding: 6px 8px 8px; }
+
+.nb-dd-signout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d32f2f;
+  cursor: pointer;
+  text-align: left;
+  transition: background .1s ease;
+}
+
+.nb-dd-signout:hover { background: #fff5f5; }
+
+.nb-dd-icon-red {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+/* ── Developer Mode Toggle ──────────────────────────────────────────────── */
+.nb-dev-row {
+  cursor: default;
+  pointer-events: none;   /* row itself not clickable — only the toggle is */
+}
+
+.nb-dev-label {
+  flex: 1;
+  color: #050505;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nb-toggle {
+  width: 38px;
+  height: 22px;
+  background: #d1d5db;
+  border: none;
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.22s ease;
+  pointer-events: all;   /* clickable even though parent row is not */
+  padding: 0;
+}
+
+.nb-toggle.nb-toggle-on { background: #ef0000; }
+
+.nb-toggle-knob {
+  display: block;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.22);
+  transition: left 0.22s ease;
+}
+
+.nb-toggle.nb-toggle-on .nb-toggle-knob { left: 19px; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .navbar { padding: 0 14px; }
+  .nb-links { display: none; }
+  .nb-sub { display: none; }
+  .nb-logo { margin-right: 0; }
+}

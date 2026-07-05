@@ -1,0 +1,242 @@
+/* ── Backdrop ── */
+.cp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  z-index: 9998;
+  animation: cp-fade-in 0.15s ease;
+}
+
+@keyframes cp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Panel ── */
+.cp-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 920px;
+  max-width: calc(100vw - 48px);
+  max-height: min(700px, calc(100vh - 80px));
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 14px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Consolas', 'Cascadia Code', 'Monaco', 'Menlo', monospace;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06) inset,
+    0 24px 80px rgba(0, 0, 0, 0.72),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: cp-popup 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+}
+
+@keyframes cp-popup {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)) scale(0.95); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ── Toolbar ── */
+.cp-toolbar {
+  display: flex;
+  align-items: stretch;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  flex-shrink: 0;
+  height: 40px;
+  border-radius: 14px 14px 0 0;
+}
+
+/* ── Tabs ── */
+.cp-tabs {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.cp-tab {
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  font-size: 12px;
+  color: #585b70;
+  border: none;
+  border-right: 1px solid #313244;
+  background: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.cp-tab:hover:not(.cp-tab-active) { color: #a6adc8; }
+
+.cp-tab-active {
+  color: #cdd6f4;
+  border-bottom: 2px solid #7c3aed;
+  background: #1e1e2e;
+}
+
+/* ── Breadcrumb ── */
+.cp-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 0 16px;
+  font-size: 12px;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-width: 0;
+}
+
+.cp-crumb-dim  { color: #45475a; white-space: nowrap; flex-shrink: 0; }
+.cp-crumb-name { color: #89dceb; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Close ── */
+.cp-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  border-left: 1px solid #313244;
+  color: #a6adc8;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cp-copy:hover {
+  background: rgba(255,255,255,0.07);
+  color: #c4b5fd;
+}
+
+.cp-copy-ok {
+  color: #a6e3a1;
+}
+
+.cp-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  background: none;
+  border: none;
+  border-left: 1px solid #313244;
+  color: #45475a;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 0 14px 0 0;
+  transition: background 0.15s, color 0.15s;
+}
+.cp-close:hover { background: rgba(255,255,255,0.07); color: #f38ba8; }
+
+/* ── File pills ── */
+.cp-filepills {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cp-filepills::-webkit-scrollbar { display: none; }
+
+.cp-filepill {
+  padding: 3px 11px;
+  font-size: 11px;
+  font-family: 'Consolas', 'Cascadia Code', monospace;
+  background: #313244;
+  color: #6c7086;
+  border: 1px solid #45475a;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.cp-filepill:hover { background: #45475a; color: #cdd6f4; }
+.cp-filepill-active {
+  background: rgba(124, 58, 237, 0.18);
+  color: #c4b5fd;
+  border-color: #7c3aed;
+}
+
+/* ── Body ── */
+.cp-body {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #313244 transparent;
+}
+.cp-body::-webkit-scrollbar        { width: 6px; height: 6px; }
+.cp-body::-webkit-scrollbar-thumb  { background: #313244; border-radius: 3px; }
+.cp-body::-webkit-scrollbar-track  { background: transparent; }
+
+/* ── Status (loading / error / empty) ── */
+.cp-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+  font-size: 13px;
+  color: #585b70;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.cp-status-err { color: #f38ba8; }
+
+@keyframes cp-spin { to { transform: rotate(360deg); } }
+.cp-spin { animation: cp-spin 0.8s linear infinite; flex-shrink: 0; }
+
+/* ── Code block ── */
+.cp-code {
+  margin: 0;
+  padding: 12px 0 24px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  white-space: pre;
+  word-break: normal;
+  color: #cdd6f4;
+  counter-reset: line;
+  display: block;
+}
+
+/* ── Line numbers via CSS counter ── */
+.cp-ln {
+  display: block;
+  counter-increment: line;
+  padding-left: 62px;
+  padding-right: 28px;
+  position: relative;
+}
+.cp-ln::before {
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: 46px;
+  text-align: right;
+  color: #3a3c56;
+  user-select: none;
+  font-size: 11px;
+  padding-right: 10px;
+  border-right: 1px solid #2a2c3e;
+  box-sizing: border-box;
+}
+.cp-ln:hover { background: rgba(255,255,255,0.025); }
+.cp-ln:hover::before { color: #6c7086; }
+
+/* ── Syntax colours — Catppuccin Mocha ── */
+.cp-kw      { color: #cba6f7; }           /* keywords — mauve    */
+.cp-fn      { color: #89b4fa; }           /* function calls — blue */
+.cp-str     { color: #a6e3a1; }           /* strings — green     */
+.cp-comment { color: #6c7086; font-style: italic; } /* comments — overlay1 */
+.cp-num     { color: #fab387; }           /* numbers — peach     */
+.cp-dec     { color: #f5c2e7; }           /* decorators — pink   */

@@ -1,0 +1,74 @@
+.dov-wrap {
+  position: relative;
+}
+
+.dov-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.dov-tabnavigation {
+  position: sticky;
+  top: var(--nav-h, 52px);
+  z-index: 90;
+}
+
+.dov-filterbar {
+  position: sticky;
+  top: calc(var(--nav-h, 52px) + var(--subnav-h, 42px));
+  z-index: 80;
+}
+
+.dov-navbar > .navbar,
+.dov-tabnavigation > .dash-subnav,
+.dov-filterbar > .dash-filterbar {
+  position: relative;
+  top: auto;
+}
+
+/* Only highlight the innermost hovered wrapper, not ancestors */
+.dov-wrap:hover:not(:has(.dov-wrap:hover)) {
+  outline: 2px dashed rgba(124, 58, 237, 0.6);
+  outline-offset: 2px;
+}
+
+.dov-btn {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 9990;
+  align-items: center;
+  gap: 5px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+  pointer-events: all;
+  box-shadow: -2px 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+.dov-btn span {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Only show pencil on the innermost hovered wrapper */
+.dov-wrap:hover:not(:has(.dov-wrap:hover)) > .dov-btn {
+  display: flex;
+}
+
+.dov-btn:hover {
+  background: #6d28d9;
+}

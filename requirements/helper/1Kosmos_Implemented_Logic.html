@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>1Kosmos Implemented Logic</title>
+  <style>
+    @page { size: A4; margin: 16mm 15mm 18mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #172033;
+      font: 10.5pt/1.55 "Segoe UI", Arial, sans-serif;
+      background: #fff;
+    }
+    h1, h2, h3 { color: #101828; page-break-after: avoid; }
+    h1 { margin: 0 0 8px; font-size: 27pt; line-height: 1.1; letter-spacing: -1px; }
+    h2 {
+      margin: 25px 0 9px;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #ff7300;
+      font-size: 16pt;
+    }
+    h3 { margin: 17px 0 6px; font-size: 12pt; }
+    p { margin: 6px 0 10px; }
+    ul, ol { margin: 6px 0 12px 22px; padding: 0; }
+    li { margin: 3px 0; }
+    code {
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: #9a3f00;
+      background: #fff3e8;
+      font-family: Consolas, monospace;
+      font-size: 9pt;
+    }
+    pre {
+      margin: 8px 0 13px;
+      padding: 11px 13px;
+      overflow-wrap: anywhere;
+      border: 1px solid #e4e7ec;
+      border-left: 4px solid #ff7300;
+      border-radius: 7px;
+      background: #f8fafc;
+      font: 8.7pt/1.5 Consolas, monospace;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      margin: 9px 0 16px;
+      border-collapse: collapse;
+      font-size: 9.2pt;
+      page-break-inside: auto;
+    }
+    tr { page-break-inside: avoid; }
+    th, td { padding: 6px 8px; border: 1px solid #dfe3e8; text-align: left; vertical-align: top; }
+    th { color: #fff; background: #273142; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .cover {
+      min-height: 245mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      page-break-after: always;
+    }
+    .brand { color: #ff7300; font-size: 12pt; font-weight: 800; letter-spacing: 2px; }
+    .subtitle { max-width: 590px; color: #667085; font-size: 14pt; }
+    .meta { margin-top: 34px; padding: 16px 18px; border-left: 5px solid #ff7300; background: #f8fafc; }
+    .meta div { margin: 3px 0; }
+    .flow {
+      margin: 13px 0 18px;
+      padding: 17px;
+      border: 1px solid #fed7aa;
+      border-radius: 9px;
+      color: #7c2d12;
+      background: #fff7ed;
+      text-align: center;
+      font: 10pt/1.9 Consolas, monospace;
+      page-break-inside: avoid;
+    }
+    .note {
+      margin: 11px 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: #344054;
+      background: #eef4ff;
+      page-break-inside: avoid;
+    }
+    .page-break { page-break-before: always; }
+    .toc a { color: inherit; text-decoration: none; }
+    .small { color: #667085; font-size: 9pt; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="brand">1KOSMOS</div>
+    <h1>Implemented Logic</h1>
+    <p class="subtitle">React and Django ARR Dashboard POC — Excel import, database persistence, API calculations, filters, and frontend visualization.</p>
+    <div class="meta">
+      <div><strong>Document:</strong> 1Kosmos Implemented Logic</div>
+      <div><strong>Implementation:</strong> Booking Database to ARR Dashboard</div>
+      <div><strong>Frontend:</strong> React</div>
+      <div><strong>Backend:</strong> Django</div>
+      <div><strong>Database:</strong> PostgreSQL</div>
+      <div><strong>Date:</strong> 22 June 2026</div>
+    </div>
+  </section>
+
+  <h2>1. Purpose and Scope</h2>
+  <p>The implemented POC converts the supplied <code>Booking Database.xlsx</code> into structured database records and displays calculated ARR information in a React dashboard.</p>
+  <p>The implementation currently covers:</p>
+  <ul>
+    <li>Uploading the Booking Database Excel workbook from React.</li>
+    <li>Validating the expected Excel template.</li>
+    <li>Reading core booking fields and monthly ARR values.</li>
+    <li>Saving versioned imports and booking rows in the database.</li>
+    <li>Calculating dashboard KPIs, trends, breakdowns, and filters in Django.</li>
+    <li>Displaying the API response in the React dashboard.</li>
+  </ul>
+
+  <h2>2. End-to-End Data Flow</h2>
+  <div class="flow">
+    Booking Database.xlsx<br>
+    ↓<br>
+    React file selection and multipart upload<br>
+    ↓<br>
+    POST /api/import/<br>
+    ↓<br>
+    Django XLSX validation and parsing<br>
+    ↓<br>
+    DataImport + BookingRecord database tables<br>
+    ↓<br>
+    GET /api/dashboard/<br>
+    ↓<br>
+    KPI, trend, breakdown, filter calculations<br>
+    ↓<br>
+    React dashboard visualization
+  </div>
+
+  <h2>3. Main Project Files</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>kosmos_app/models.py</code></td><td>Defines import and booking database tables.</td></tr>
+      <tr><td><code>kosmos_app/excel.py</code></td><td>Validates and reads the Booking Database XLSX structure.</td></tr>
+      <tr><td><code>kosmos_app/views.py</code></td><td>Provides upload and dashboard JSON APIs.</td></tr>
+      <tr><td><code>kosmos_app/urls.py</code></td><td>Maps API URLs to Django views.</td></tr>
+      <tr><td><code>kosmos/settings.py</code></td><td>Configures Django, PostgreSQL, timezone, hosts, and middleware.</td></tr>
+      <tr><td><code>src/pages/Dashboard.js</code></td><td>Uploads Excel, requests API data, manages filters, and renders the dashboard.</td></tr>
+      <tr><td><code>src/pages/Dashboard.css</code></td><td>Provides the dashboard layout and visual design.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. Database Design</h2>
+  <h3>4.1 DataImport</h3>
+  <p>This table stores one entry for every successful Excel upload.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>file_name</td><td>Name of the uploaded workbook.</td></tr>
+      <tr><td>imported_at</td><td>Automatic upload date and time.</td></tr>
+      <tr><td>row_count</td><td>Number of imported booking records.</td></tr>
+    </tbody>
+  </table>
+  <p>Database table: <code>kosmos_app_dataimport</code></p>
+
+  <h3>4.2 BookingRecord</h3>
+  <p>This table stores one row for every valid booking line found after the Excel header row. Each row is linked to a <code>DataImport</code> through a foreign key.</p>
+  <p>Important fields include contract details, customer, salesperson, industry, business unit, product, TCV, ARR, booking amount, statuses, term dates, current ARR, and monthly ARR history.</p>
+  <p>Database table: <code>kosmos_app_bookingrecord</code></p>
+  <div class="note"><strong>Versioning logic:</strong> every upload creates a new DataImport and new BookingRecord rows. The dashboard reads only the newest import, while older imports remain available in the database.</div>
+
+  <h2>5. Excel Template and Column Mapping</h2>
+  <p>The current parser supports the supplied Booking Database format with these rules:</p>
+  <ul>
+    <li>The first worksheet is used.</li>
+    <li>The header must be on row 22.</li>
+    <li>Booking records begin on row 23.</li>
+    <li>Cell A22 must contain <code>Key id</code>.</li>
+    <li>Cell D22 must contain <code>Contract_ID</code>.</li>
+  </ul>
+  <table>
+    <thead><tr><th>Excel column</th><th>Stored field</th></tr></thead>
+    <tbody>
+      <tr><td>A</td><td>Key ID</td></tr>
+      <tr><td>B</td><td>Entity</td></tr>
+      <tr><td>C</td><td>Currency</td></tr>
+      <tr><td>D</td><td>Contract ID</td></tr>
+      <tr><td>E</td><td>Contract name</td></tr>
+      <tr><td>F</td><td>Salesperson</td></tr>
+      <tr><td>G</td><td>Mode</td></tr>
+      <tr><td>H</td><td>Company size</td></tr>
+      <tr><td>I</td><td>Industry</td></tr>
+      <tr><td>J</td><td>Business unit</td></tr>
+      <tr><td>K</td><td>Bill-to customer</td></tr>
+      <tr><td>L</td><td>End user</td></tr>
+      <tr><td>M</td><td>Product type</td></tr>
+      <tr><td>N</td><td>Sub-product type</td></tr>
+      <tr><td>O</td><td>Revenue method</td></tr>
+      <tr><td>Q</td><td>TCV USD</td></tr>
+      <tr><td>S</td><td>ARR model value</td></tr>
+      <tr><td>V</td><td>Booking value</td></tr>
+      <tr><td>W</td><td>Booking status</td></tr>
+      <tr><td>X</td><td>Order status</td></tr>
+      <tr><td>Y</td><td>Recurring/non-recurring</td></tr>
+      <tr><td>Z</td><td>Term start</td></tr>
+      <tr><td>AA</td><td>Term end</td></tr>
+      <tr><td>AD</td><td>Line of business</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6. Monthly ARR Logic</h2>
+  <p>Columns <code>AF</code> through <code>DP</code> contain monthly ARR snapshots. Their row-22 values are Excel dates. The parser converts each date to a <code>YYYY-MM</code> key and stores each row's monthly values in the <code>monthly_arr</code> JSON field.</p>
+  <pre>{
+  "2026-03": 100000,
+  "2026-04": 110000,
+  "2026-05": 125000
+}</pre>
+  <p>The record's <code>current_arr</code> is the amount for the latest available month. If no monthly series exists, the parser falls back to the ARR value from column S.</p>
+
+  <h2>7. How the XLSX Parser Works</h2>
+  <p>An XLSX workbook is a ZIP package containing XML documents. The implementation reads this structure directly, avoiding an additional Excel library.</p>
+  <ol>
+    <li>Read the uploaded file into memory.</li>
+    <li>Open it as a ZIP archive.</li>
+    <li>Read <code>sharedStrings.xml</code> to resolve stored text values.</li>
+    <li>Resolve and open the first worksheet XML file.</li>
+    <li>Locate row 22 and validate the expected headers.</li>
+    <li>Build the monthly column-to-date mapping.</li>
+    <li>Read all valid rows after row 22.</li>
+    <li>Convert numeric values to floats and Excel dates to Python dates.</li>
+    <li>Build one Python dictionary per booking record.</li>
+  </ol>
+  <p>Excel serial dates are converted from Excel's date base:</p>
+  <pre>datetime(1899, 12, 30) + timedelta(days=excel_value)</pre>
+  <p>Rows that contain neither a Contract ID nor a Contract Name are skipped.</p>
+  <div class="note"><strong>Formula behavior:</strong> this parser does not calculate Excel formulas. It reads values saved inside the workbook. The workbook should be opened, recalculated, and saved in Excel before upload when formulas have changed.</div>
+
+  <h2>8. Upload API</h2>
+  <p>Endpoint: <code>POST /api/import/</code></p>
+  <p>React sends the workbook using multipart form data:</p>
+  <pre>const formData = new FormData();
+formData.append("file", file);
+fetch("/api/import/", { method: "POST", body: formData });</pre>
+  <p>Django verifies that a file exists, its extension is <code>.xlsx</code>, the ZIP/XML structure is valid, the template headers match, and at least one booking record exists.</p>
+  <p>Database writing occurs inside <code>transaction.atomic()</code>. Therefore, a failed operation rolls back the complete upload instead of saving partial data. Records are inserted with <code>bulk_create</code> in batches of 250 for better performance.</p>
+
+  <h2>9. Dashboard API and Calculations</h2>
+  <p>Endpoint: <code>GET /api/dashboard/</code></p>
+  <p>The latest DataImport is selected because the model is ordered by newest <code>imported_at</code>. Only records connected to that import are included.</p>
+  <table>
+    <thead><tr><th>Metric</th><th>Implemented calculation</th></tr></thead>
+    <tbody>
+      <tr><td>Closing ARR</td><td>Sum of <code>current_arr</code> for selected records.</td></tr>
+      <tr><td>Total bookings</td><td>Sum of the imported booking values.</td></tr>
+      <tr><td>Customers</td><td>Unique count using End User, with Bill To as fallback.</td></tr>
+      <tr><td>Recurring contracts</td><td>Count of rows where revenue type equals Recurring.</td></tr>
+      <tr><td>Average ARR</td><td>Total current ARR divided by recurring contract count.</td></tr>
+      <tr><td>Monthly trend</td><td>Sum every record's monthly ARR amount for each month.</td></tr>
+      <tr><td>Breakdowns</td><td>Group and sum current ARR by business unit, industry, customer, or sub-product.</td></tr>
+      <tr><td>Contract table</td><td>Sort by current ARR descending and return the first 50 records.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10. Filter Logic</h2>
+  <p>The API supports business unit, industry, salesperson, and product type filters. React sends them as URL query parameters:</p>
+  <pre>GET /api/dashboard/?business_unit=NAM&amp;industry=TMT</pre>
+  <p>Django filters the latest import's queryset before calculating any values. Therefore, KPI cards, trends, breakdowns, and table rows all represent the same selected data.</p>
+
+  <h2>11. React Dashboard Logic</h2>
+  <p>The React dashboard manages:</p>
+  <ul>
+    <li><code>data</code> — current dashboard API response.</li>
+    <li><code>filters</code> — selected filter values.</li>
+    <li><code>loading</code> — dashboard request state.</li>
+    <li><code>uploading</code> — workbook import state.</li>
+    <li><code>message</code> — success or error feedback.</li>
+  </ul>
+  <p>When the page loads, React requests the dashboard API. When a filter changes, React rebuilds the query string and requests recalculated data. After a successful upload, filters are cleared and the dashboard is refreshed.</p>
+  <p>The UI includes KPI cards, an SVG monthly trend, proportional bar lists, and a largest-contract table. Currency values use the browser's USD formatter, including compact million notation.</p>
+
+  <h2>12. API Summary</h2>
+  <table>
+    <thead><tr><th>Method</th><th>URL</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>POST</td><td><code>/api/import/</code></td><td>Validate, parse, and save the Booking Database workbook.</td></tr>
+      <tr><td>GET</td><td><code>/api/dashboard/</code></td><td>Return the latest dashboard data.</td></tr>
+      <tr><td>GET</td><td><code>/api/dashboard/?business_unit=NAM</code></td><td>Return recalculated filtered data.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>13. Local Execution</h2>
+  <h3>Backend</h3>
+  <pre>cd kosmos
+.\venv\Scripts\python.exe manage.py migrate
+.\venv\Scripts\python.exe manage.py runserver</pre>
+  <h3>Frontend</h3>
+  <pre>cd kosmos_frontend
+npm.cmd start</pre>
+  <p>Open <code>http://localhost:3000</code> and upload <code>requirements\Booking Database.xlsx</code>.</p>
+
+  <h2>14. Current POC Limitations</h2>
+  <ul>
+    <li>Only the Booking Database workbook is imported.</li>
+    <li>Pipeline, AR Aging, Payment History, and Renewal Pending are not integrated.</li>
+    <li>Azure AD SSO and production role-based access are not implemented.</li>
+    <li>No Excel/CSV export or import-history user interface exists.</li>
+    <li>Older versions remain in the database but cannot yet be selected from React.</li>
+    <li>Duplicate uploads are not currently blocked.</li>
+    <li>Large uploads run synchronously rather than through background jobs.</li>
+    <li>Excel formulas are not recalculated by the backend.</li>
+  </ul>
+
+  <h2>15. Recommended Next Phase</h2>
+  <ol>
+    <li>Add an import history screen and version activation/rollback.</li>
+    <li>Add detailed row-level validation and downloadable error reports.</li>
+    <li>Integrate Pipeline and AR Dashboard workbooks through separate models.</li>
+    <li>Add authentication, admin/consumer roles, and scoped data access.</li>
+    <li>Add filtered Excel export.</li>
+    <li>Move credentials to environment variables and configure production deployment.</li>
+  </ol>
+
+  <p class="small">Generated from the implemented 1Kosmos React and Django POC on 22 June 2026.</p>
+</body>
+</html>

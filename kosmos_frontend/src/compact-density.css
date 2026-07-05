@@ -1,0 +1,574 @@
+/* Global compact density layer.
+   Keeps the app readable while making dashboards feel closer to 75% browser zoom. */
+:root {
+  --nav-h: 42px;
+  --subnav-h: 34px;
+  --radius: 6px;
+}
+
+html,
+body {
+  font-size: 12px;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-size: 12px;
+}
+
+svg,
+canvas,
+img {
+  max-width: 100%;
+}
+
+/* Top app navigation */
+.navbar {
+  height: 42px !important;
+  padding: 0 12px !important;
+}
+
+.nb-logo {
+  gap: 7px !important;
+  margin-right: 16px !important;
+}
+
+.nb-brand-icon {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 7px !important;
+  padding: 3px !important;
+}
+
+.nb-name {
+  font-size: 12px !important;
+}
+
+.nb-sub {
+  font-size: 8px !important;
+  letter-spacing: .4px !important;
+}
+
+.nb-links a {
+  height: 26px !important;
+  padding: 0 8px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+
+.nb-avatar {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 11px !important;
+}
+
+.nb-dropdown {
+  width: 238px !important;
+  top: calc(100% + 6px) !important;
+  border-radius: 8px !important;
+}
+
+.nb-dd-profile {
+  gap: 8px !important;
+  padding: 10px !important;
+}
+
+.nb-dd-avatar {
+  width: 34px !important;
+  height: 34px !important;
+  font-size: 14px !important;
+}
+
+.nb-dd-name {
+  font-size: 12px !important;
+}
+
+.nb-dd-email,
+.nb-dd-item,
+.nb-dd-signout,
+.nb-dev-label {
+  font-size: 11px !important;
+}
+
+.nb-dd-section,
+.nb-dd-footer {
+  padding: 4px 6px !important;
+}
+
+.nb-dd-item,
+.nb-dd-signout {
+  gap: 7px !important;
+  padding: 6px !important;
+  border-radius: 6px !important;
+}
+
+.nb-dd-icon-wrap {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Shared dashboard frame */
+.dash-subnav {
+  min-height: 34px !important;
+  padding: 0 12px !important;
+}
+
+.dash-tab {
+  height: 34px !important;
+  padding: 0 8px !important;
+  gap: 4px !important;
+  border-bottom-width: 2px !important;
+  font-size: 10.5px !important;
+}
+
+.dash-tab-dot {
+  width: 5px !important;
+  height: 5px !important;
+}
+
+.dash-subnav-actions {
+  gap: 6px !important;
+  padding-left: 8px !important;
+}
+
+.dash-filterbar {
+  top: calc(var(--nav-h, 42px) + var(--subnav-h, 34px)) !important;
+  gap: 5px 8px !important;
+  padding: 5px 12px !important;
+}
+
+.dash-fb-label {
+  gap: 4px !important;
+  font-size: 8px !important;
+  letter-spacing: .4px !important;
+}
+
+.dash-fb-divider {
+  height: 18px !important;
+}
+
+.dash-filter-group {
+  gap: 1px !important;
+}
+
+.dash-filter-label {
+  font-size: 8px !important;
+  letter-spacing: .25px !important;
+}
+
+.dash-filter-select {
+  min-width: 94px !important;
+  border-radius: 6px !important;
+  padding: 3px 22px 3px 7px !important;
+  background-position: right 7px center !important;
+  font-size: 10.5px !important;
+}
+
+.dash-filter-reset,
+.dash-import-btn {
+  gap: 4px !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  font-size: 10.5px !important;
+}
+
+.dash-week-badge {
+  padding: 2px 7px !important;
+  font-size: 10px !important;
+}
+
+.dash-content {
+  max-width: none !important;
+  padding: 10px 12px 28px !important;
+}
+
+.dash-notice {
+  margin: 8px 12px !important;
+  padding: 7px 10px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+
+.dash-empty {
+  max-width: 380px !important;
+  margin: 28px auto !important;
+  padding: 28px 24px !important;
+  border-radius: 8px !important;
+}
+
+.dash-empty-icon {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 10px !important;
+  margin-bottom: 12px !important;
+}
+
+.dash-empty h2 {
+  font-size: 16px !important;
+  margin-bottom: 5px !important;
+}
+
+.dash-empty p {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  margin-bottom: 14px !important;
+}
+
+.dash-empty-btn {
+  gap: 5px !important;
+  padding: 7px 12px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+
+.dash-search {
+  min-width: 130px !important;
+  padding: 5px 9px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+
+/* Generic dashboard density */
+.pl-card,
+.ar-region-card,
+.ar-mini-card,
+.ar-bucket-card,
+.arr-card,
+.arr-metric-card,
+.arr-kpi-card,
+.arr-panel,
+.ccard,
+.tcard {
+  border-radius: 7px !important;
+  padding: 10px 12px !important;
+  margin-bottom: 10px !important;
+}
+
+.pl-2col,
+.pl-3col,
+.pl-13col,
+.pl-31col,
+.ar-kpi-grid,
+.ar-region-grid,
+.ar-mini-strip,
+.ar-bucket-strip,
+.arr-grid,
+.arr-kpi-grid,
+.arr-card-grid,
+.cgrid2,
+.cgrid3 {
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+/* Pipeline */
+.pl {
+  --radius: 7px;
+}
+
+.pl-body {
+  max-width: none !important;
+}
+
+.pl-kpi-strip {
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.pl-kpi {
+  border-top-width: 2px !important;
+  border-radius: 7px !important;
+  padding: 9px 10px !important;
+}
+
+.pl-kpi-label,
+.pl-kpi-sub,
+.pl-card-tag,
+.pl-cov-sub,
+.pl-rep-stat-lbl,
+.pl-click-hint {
+  font-size: 8.5px !important;
+}
+
+.pl-kpi-value {
+  font-size: 16px !important;
+  margin: 2px 0 !important;
+}
+
+.pl-kpi-icon {
+  top: 8px !important;
+  right: 8px !important;
+  font-size: 16px !important;
+}
+
+.pl-card-header {
+  margin-bottom: 8px !important;
+}
+
+.pl-card-title {
+  font-size: 11.5px !important;
+}
+
+.pl-card-tag {
+  padding: 1px 6px !important;
+  border-radius: 8px !important;
+}
+
+.pl-cov-card,
+.pl-rep-card,
+.mv-week-bar,
+.pl-alert,
+.pl-insight-card {
+  padding: 8px 10px !important;
+  border-radius: 7px !important;
+  margin-bottom: 8px !important;
+}
+
+.pl-cov-title,
+.pl-rep-name,
+.pl-bar-row,
+.pl-move-card,
+.pl-empty p {
+  font-size: 10.5px !important;
+}
+
+.pl-cov-pct {
+  font-size: 20px !important;
+}
+
+.pl-rep-stat-val {
+  font-size: 12px !important;
+}
+
+.pl-bar-list,
+.pl-donut-legend {
+  gap: 4px !important;
+}
+
+.pl-bar-row {
+  gap: 5px !important;
+}
+
+.pl-bar-label {
+  width: 104px !important;
+}
+
+.pl-bar-track {
+  height: 6px !important;
+}
+
+.pl-bar-val {
+  width: 58px !important;
+}
+
+.pl-donut-wrap {
+  gap: 8px !important;
+}
+
+.pl-donut-dot {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+.pl-twrap table,
+.pl-matrix table,
+.mtbl {
+  font-size: 9.5px !important;
+}
+
+.pl-twrap thead th,
+.pl-twrap tbody td,
+.pl-matrix th,
+.pl-matrix td,
+.mtbl th,
+.mtbl td {
+  padding: 5px 7px !important;
+  font-size: 9.5px !important;
+}
+
+.pl-stage-badge {
+  padding: 1px 5px !important;
+  border-radius: 7px !important;
+  font-size: 8.5px !important;
+}
+
+/* AR */
+.ar-kpi-grid {
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.ar-kcard {
+  border-radius: 7px !important;
+  padding: 9px 10px !important;
+}
+
+.ar-kcard-label,
+.ar-kcard-sub,
+.ar-mini-label,
+.ar-mini-sub,
+.ar-bucket-lbl,
+.ar-region-customers,
+.ar-region-tag,
+.ar-region-rcust {
+  font-size: 8.5px !important;
+}
+
+.ar-kcard-val {
+  font-size: 16px !important;
+}
+
+.ar-kcard-ico {
+  right: 8px !important;
+  font-size: 18px !important;
+}
+
+.ar-mini-value,
+.ar-region-total {
+  font-size: 13px !important;
+}
+
+.ar-region-hd {
+  gap: 6px !important;
+  margin-bottom: 7px !important;
+}
+
+.ar-region-row {
+  gap: 5px !important;
+  padding: 3px 0 !important;
+  font-size: 10px !important;
+}
+
+.ar-upload-btn {
+  padding: 7px 12px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+}
+
+/* ARR */
+.arr-shell {
+  min-height: auto !important;
+}
+
+.arr-nav {
+  min-height: 40px !important;
+  top: 42px !important;
+  padding: 0 14px !important;
+  gap: 10px !important;
+}
+
+.arr-logo {
+  gap: 6px !important;
+  margin-right: 4px !important;
+  font-size: 13px !important;
+}
+
+.arr-logo-badge {
+  border-radius: 5px !important;
+  padding: 3px 6px !important;
+  font-size: 10px !important;
+}
+
+.arr-tab-btn {
+  height: 40px !important;
+  padding: 0 10px !important;
+  border-bottom-width: 2px !important;
+  font-size: 10.5px !important;
+}
+
+.arr-card h3,
+.arr-card h4,
+.ccard h4,
+.ttl {
+  font-size: 11.5px !important;
+}
+
+.arr-card p,
+.arr-card span,
+.csub {
+  font-size: 10px !important;
+}
+
+.kcard,
+.arr-kpi-card,
+.arr-metric-card {
+  border-radius: 7px !important;
+  padding: 9px 10px !important;
+}
+
+.klbl,
+.ksub,
+.arr-kpi-label,
+.arr-metric-label {
+  font-size: 8.5px !important;
+}
+
+.kval,
+.arr-kpi-value,
+.arr-metric-value {
+  font-size: 16px !important;
+}
+
+.kico {
+  font-size: 16px !important;
+}
+
+.kstrip {
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.cwrap {
+  height: 170px !important;
+}
+
+.cwrap.tall {
+  height: 210px !important;
+}
+
+.cwrap.xtall {
+  height: 240px !important;
+}
+
+.thead2 {
+  padding: 7px 10px !important;
+}
+
+table {
+  font-size: 10px !important;
+}
+
+thead th,
+tbody td {
+  padding: 5px 7px !important;
+  font-size: 9.5px !important;
+}
+
+/* Modals and drilldowns */
+.modal-box,
+.drill-modal,
+.pl-drill-modal,
+.swal2-popup {
+  transform: scale(.86) !important;
+  transform-origin: center !important;
+}
+
+/* Keep compact mode usable on smaller screens. */
+@media (max-width: 900px) {
+  .dash-content {
+    padding: 8px 8px 24px !important;
+  }
+
+  .dash-tab {
+    padding: 0 7px !important;
+    font-size: 10px !important;
+  }
+
+  .dash-filter-select {
+    min-width: 82px !important;
+  }
+}
