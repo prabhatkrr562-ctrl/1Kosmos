@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useDevMode } from '../../context/DevModeContext';
-import { API_URL } from '../../config/api';
 import './CodePanel.css';
 
 // ── Syntax highlighting ──────────────────────────────────────────────────────
@@ -85,73 +84,6 @@ function getLang(path) {
 
 function basename(p) { return p ? p.split('/').pop() : ''; }
 
-// ── Diff ─────────────────────────────────────────────────────────────────────
-
-function diffLines(oldText, newText) {
-  const a = (oldText || '').split('\n');
-  const b = (newText || '').split('\n');
-  if (a.length * b.length > 4_000_000) {
-    // Too large for a full LCS diff — fall back to a coarse whole-block diff.
-    return [
-      ...a.map((text) => ({ type: 'del', text })),
-      ...b.map((text) => ({ type: 'add', text })),
-    ];
-  }
-  const n = a.length, m = b.length;
-  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const ops = [];
-  let i = 0, j = 0;
-  while (i < n && j < m) {
-    if (a[i] === b[j]) { ops.push({ type: 'same', text: a[i] }); i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push({ type: 'del', text: a[i] }); i++; }
-    else { ops.push({ type: 'add', text: b[j] }); j++; }
-  }
-  while (i < n) { ops.push({ type: 'del', text: a[i++] }); }
-  while (j < m) { ops.push({ type: 'add', text: b[j++] }); }
-  return ops;
-}
-
-function DiffView({ oldText, newText }) {
-  const ops = diffLines(oldText, newText);
-  const CONTEXT = 3;
-  const visible = new Array(ops.length).fill(false);
-  ops.forEach((op, idx) => {
-    if (op.type !== 'same') {
-      for (let k = Math.max(0, idx - CONTEXT); k <= Math.min(ops.length - 1, idx + CONTEXT); k++) {
-        visible[k] = true;
-      }
-    }
-  });
-  const rows = [];
-  let i = 0;
-  while (i < ops.length) {
-    if (visible[i]) { rows.push(ops[i]); i++; continue; }
-    let j = i;
-    while (j < ops.length && !visible[j]) j++;
-    rows.push({ type: 'skip', count: j - i });
-    i = j;
-  }
-  return (
-    <pre className="cp-diff-body">
-      {rows.map((op, idx) => op.type === 'skip' ? (
-        <div key={idx} className="cp-diff-skip">
-          {`⋯ ${op.count} unchanged line${op.count === 1 ? '' : 's'} ⋯`}
-        </div>
-      ) : (
-        <div key={idx} className={`cp-diff-line cp-diff-${op.type}`}>
-          <span className="cp-diff-marker">{op.type === 'add' ? '+' : op.type === 'del' ? '−' : ' '}</span>
-          <span className="cp-diff-text">{op.text || ' '}</span>
-        </div>
-      ))}
-    </pre>
-  );
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function CodePanel() {
@@ -160,37 +92,11 @@ export function CodePanel() {
   const [fileIdx, setFileIdx] = useState(0);
   const [copied,  setCopied]  = useState(false);
 
-  const [instruction, setInstruction] = useState('');
-  const [aiLoading,   setAiLoading]   = useState(false);
-  const [aiError,     setAiError]     = useState('');
-  const [proposal,    setProposal]    = useState(null); // { file, original, updated, unchanged }
-  const [applying,    setApplying]    = useState(false);
-
-  const [editing,    setEditing]    = useState(false);
-  const [draft,      setDraft]      = useState('');
-  const [saving,     setSaving]     = useState(false);
-  const [saveError,  setSaveError]  = useState('');
-
   const close = () => setInspected(null);
 
-  const resetAiState = () => {
-    setInstruction('');
-    setAiLoading(false);
-    setAiError('');
-    setProposal(null);
-    setApplying(false);
-  };
-
-  const resetEditState = () => {
-    setEditing(false);
-    setDraft('');
-    setSaving(false);
-    setSaveError('');
-  };
-
-  useEffect(() => { setTab('frontend'); setFileIdx(0); setCopied(false); resetAiState(); resetEditState(); }, [inspected?.name]);
-  useEffect(() => { setFileIdx(0); setCopied(false); resetAiState(); resetEditState(); }, [tab]);
-  useEffect(() => { setCopied(false); resetAiState(); resetEditState(); }, [fileIdx]);
+  useEffect(() => { setTab('frontend'); setFileIdx(0); setCopied(false); }, [inspected?.name]);
+  useEffect(() => { setFileIdx(0); setCopied(false); }, [tab]);
+  useEffect(() => { setCopied(false); }, [fileIdx]);
 
   useEffect(() => {
     if (!inspected) return;
@@ -229,126 +135,11 @@ export function CodePanel() {
     body = <div className="cp-status">No files registered for this component.</div>;
   } else if (file.error) {
     body = <div className="cp-status cp-status-err">{file.error}</div>;
-  } else if (editing) {
-    body = (
-      <textarea
-        className="cp-edit-textarea"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        spellCheck={false}
-        disabled={saving}
-        autoFocus
-      />
-    );
-  } else if (proposal && proposal.file === file.file && !proposal.unchanged) {
-    body = <DiffView oldText={proposal.original} newText={proposal.updated} />;
-  } else if (proposal && proposal.file === file.file && proposal.unchanged) {
-    body = <div className="cp-status">Claude didn't suggest any changes to this file.</div>;
   } else {
     const lang = getLang(file.file);
     const code = highlight(file.code || '', lang);
     body = <pre className="cp-code" dangerouslySetInnerHTML={{ __html: code }} />;
   }
-
-  const askClaude = async () => {
-    if (!file || file.error || !instruction.trim()) return;
-    setAiLoading(true);
-    setAiError('');
-    setProposal(null);
-    try {
-      const res = await fetch(`${API_URL}/api/dev/ai-edit/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: file.file, instruction: instruction.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setProposal(data);
-    } catch (err) {
-      setAiError(err.message);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const applyProposal = async () => {
-    if (!proposal) return;
-    setApplying(true);
-    setAiError('');
-    try {
-      const res = await fetch(`${API_URL}/api/dev/ai-apply/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          file: proposal.file,
-          updated: proposal.updated,
-          original: proposal.original,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      // Patch the already-loaded source so the panel reflects the new code
-      // without a round-trip back through the source-code endpoint.
-      setInspected((prev) => {
-        if (!prev) return prev;
-        const nextFiles = (prev[tab] || []).map((f) =>
-          f.file === proposal.file ? { ...f, code: proposal.updated } : f
-        );
-        return { ...prev, [tab]: nextFiles };
-      });
-      setProposal(null);
-      setInstruction('');
-    } catch (err) {
-      setAiError(err.message);
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const startEdit = () => {
-    if (!file || file.error) return;
-    setProposal(null);
-    setDraft(file.code || '');
-    setSaveError('');
-    setEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setEditing(false);
-    setDraft('');
-    setSaveError('');
-  };
-
-  const saveEdit = async () => {
-    if (!file) return;
-    setSaving(true);
-    setSaveError('');
-    try {
-      const res = await fetch(`${API_URL}/api/dev/ai-apply/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: file.file, updated: draft, original: file.code }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setInspected((prev) => {
-        if (!prev) return prev;
-        const nextFiles = (prev[tab] || []).map((f) =>
-          f.file === file.file ? { ...f, code: draft } : f
-        );
-        return { ...prev, [tab]: nextFiles };
-      });
-      setEditing(false);
-      setDraft('');
-    } catch (err) {
-      setSaveError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const copyCode = async () => {
     if (!file || file.error || !file.code) return;
@@ -393,12 +184,6 @@ export function CodePanel() {
               <span className="cp-crumb-name">{basename(file.file)}</span>
             </>}
           </div>
-          {file && !isLoad && !isErr && !file.error && !editing && (
-            <button className="cp-copy" onClick={startEdit} title="Edit file directly">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              <span>Edit</span>
-            </button>
-          )}
           {file && !isLoad && !isErr && !file.error && (
             <button className={`cp-copy${copied ? ' cp-copy-ok' : ''}`} onClick={copyCode} title="Copy code">
               {copied ? (
@@ -436,69 +221,6 @@ export function CodePanel() {
         <div className="cp-body">
           {body}
         </div>
-
-        {/* ── Direct edit save bar ── */}
-        {!isLoad && !isErr && file && !file.error && editing && (
-          <div className="cp-ai-bar">
-            {saveError && <div className="cp-ai-error">{saveError}</div>}
-            <div className="cp-ai-proposal-actions">
-              <span className="cp-ai-proposal-label">Editing {basename(file.file)} directly</span>
-              <button className="cp-ai-discard" onClick={cancelEdit} disabled={saving}>
-                Cancel
-              </button>
-              <button className="cp-ai-apply" onClick={saveEdit} disabled={saving || draft === file.code}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Ask Claude ── */}
-        {!isLoad && !isErr && file && !file.error && !editing && (
-          <div className="cp-ai-bar">
-            {aiError && <div className="cp-ai-error">{aiError}</div>}
-            {proposal && proposal.file === file.file ? (
-              <div className="cp-ai-proposal-actions">
-                <span className="cp-ai-proposal-label">
-                  {proposal.unchanged ? 'No changes suggested' : 'Review the diff above'}
-                </span>
-                <button className="cp-ai-discard" onClick={() => setProposal(null)}>
-                  Discard
-                </button>
-                {!proposal.unchanged && (
-                  <button className="cp-ai-apply" onClick={applyProposal} disabled={applying}>
-                    {applying ? 'Applying…' : 'Apply'}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="cp-ai-input-row">
-                <textarea
-                  className="cp-ai-input"
-                  rows={2}
-                  placeholder={`Ask Claude to edit ${basename(file.file)}…`}
-                  value={instruction}
-                  onChange={(e) => setInstruction(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault();
-                      askClaude();
-                    }
-                  }}
-                  disabled={aiLoading}
-                />
-                <button
-                  className="cp-ai-btn"
-                  onClick={askClaude}
-                  disabled={aiLoading || !instruction.trim()}
-                  title="Ctrl/Cmd + Enter"
-                >
-                  {aiLoading ? 'Thinking…' : 'Ask Claude'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </>
   );

@@ -2,6 +2,7 @@ from django.urls import path
 from . import dev_views
 from . import auth_views
 from . import ai_views
+from . import git_views
 from .ar_views import ar_dashboard, ar_raw, ar_save, import_ar
 from .arr_views import dashboard, import_bookings
 from .middleware import require_session
@@ -29,6 +30,7 @@ urlpatterns = [
     path('api/ai/context/', require_session(ai_views.ai_context), name='ai-context'),
     path('api/ai/chat/', require_session(ai_views.ai_chat), name='ai-chat'),
     path('api/dev/source-code/', require_session(dev_views.dev_source_code), name='dev-source-code'),
-    path('api/dev/ai-edit/', require_session(dev_views.dev_ai_edit), name='dev-ai-edit'),
-    path('api/dev/ai-apply/', require_session(dev_views.dev_ai_apply), name='dev-ai-apply'),
+    path('api/git/status/', require_session(git_views.git_status), name='git-status'),
+    path('api/git/push/', require_session(git_views.git_push), name='git-push'),
+    path('api/git/pull/', require_session(git_views.git_pull), name='git-pull'),
 ]
