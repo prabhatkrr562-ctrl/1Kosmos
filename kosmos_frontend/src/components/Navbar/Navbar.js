@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
-import { useDevMode } from '../../context/DevModeContext';
 import oneKosmosIcon from '../../assets/images/1kosmos-icon.png';
 
 const NAV = [
@@ -16,7 +15,6 @@ function Navbar({ active = 'arr', user, onLogout }) {
 
     const [open, setOpen] = useState(false);
     const dropRef = useRef(null);
-    const { isDevMode, toggleDevMode } = useDevMode();
 
     const go = (event, href) => {
         event.preventDefault();
@@ -73,27 +71,6 @@ function Navbar({ active = 'arr', user, onLogout }) {
                         <div className="nb-dd-divider" />
 
                         <div className="nb-dd-section">
-                            <p className="nb-dd-section-label">Developer</p>
-                            <div className="nb-dd-item nb-dev-row">
-                                <span className="nb-dd-icon-wrap">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                </span>
-                                <span className="nb-dev-label">Developer Mode</span>
-                                <button
-                                    role="switch"
-                                    aria-checked={isDevMode}
-                                    className={`nb-toggle${isDevMode ? ' nb-toggle-on' : ''}`}
-                                    onClick={(e) => { e.stopPropagation(); toggleDevMode(); }}
-                                    title={isDevMode ? 'Turn off developer mode' : 'Turn on developer mode'}
-                                >
-                                    <span className="nb-toggle-knob" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="nb-dd-divider" />
-
-                        <div className="nb-dd-section">
                             <p className="nb-dd-section-label">Account</p>
                             <button className="nb-dd-item" onClick={() => setOpen(false)}>
                                 <span className="nb-dd-icon-wrap">
@@ -101,7 +78,10 @@ function Navbar({ active = 'arr', user, onLogout }) {
                                 </span>
                                 Your Profile
                             </button>
-                            <button className="nb-dd-item" onClick={() => setOpen(false)}>
+                            <button
+                                className={`nb-dd-item${window.location.pathname === '/settings' ? ' active' : ''}`}
+                                onClick={(event) => { setOpen(false); go(event, '/settings'); }}
+                            >
                                 <span className="nb-dd-icon-wrap">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
                                 </span>

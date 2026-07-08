@@ -1,0 +1,52 @@
+.settings-page {
+  width: min(860px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 56px 0 80px;
+  color: #111827;
+}
+
+.settings-heading { margin-bottom: 28px; }
+.settings-eyebrow { color: #ef0000; font-size: 12px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.settings-heading h1 { margin: 6px 0 8px; font-size: 32px; line-height: 1.15; letter-spacing: -.03em; }
+.settings-heading p { margin: 0; color: #6b7280; font-size: 15px; }
+
+.settings-card { overflow: hidden; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 10px 30px rgba(15, 23, 42, .06); }
+.settings-row { display: flex; align-items: center; gap: 16px; padding: 22px 24px; }
+.settings-divider { height: 1px; margin-left: 76px; background: #eef0f3; }
+.settings-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 10px; font-weight: 800; }
+.settings-icon-code { background: #fff0f0; color: #ef0000; font-size: 13px; }
+.settings-icon-github { background: #111827; color: #fff; }
+.settings-copy { flex: 1; min-width: 0; }
+.settings-copy h2 { margin: 0 0 4px; font-size: 15px; }
+.settings-copy p { margin: 0; color: #6b7280; font-size: 13px; line-height: 1.45; }
+
+.settings-toggle { position: relative; width: 44px; height: 24px; padding: 0; flex: 0 0 44px; border: 0; border-radius: 999px; background: #d1d5db; cursor: pointer; transition: background .2s ease; }
+.settings-toggle-on { background: #ef0000; }
+.settings-toggle-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .24); transition: transform .2s ease; }
+.settings-toggle-on .settings-toggle-knob { transform: translateX(20px); }
+.settings-toggle:focus-visible, .settings-action:focus-visible { outline: 3px solid rgba(239, 0, 0, .25); outline-offset: 3px; }
+
+.settings-action { display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+.settings-action:hover { border-color: #ef0000; background: #fff7f7; color: #ef0000; }
+.settings-action:disabled { border-color: #e5e7eb; background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.settings-action-primary { border-color: #ef0000; background: #ef0000; color: #fff; }
+.settings-action-primary:hover:not(:disabled) { background: #d90000; color: #fff; }
+.settings-repository { display: block; width: fit-content; max-width: 100%; margin-bottom: 4px; overflow: hidden; color: #111827; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.settings-repository:hover { color: #ef0000; }
+.settings-copy .settings-change-count { margin-top: 4px; color: #15803d; font-weight: 700; }
+.settings-copy .settings-change-count-active { color: #b45309; }
+.settings-git-actions { display: flex; align-items: center; gap: 8px; }
+.settings-git-notice { margin: -6px 24px 20px 76px; padding: 10px 12px; border-radius: 8px; background: #ecfdf3; color: #166534; font-size: 13px; line-height: 1.4; }
+.settings-git-notice-error { background: #fff1f2; color: #be123c; }
+
+@media (max-width: 600px) {
+  .settings-page { width: min(100% - 28px, 860px); padding-top: 32px; }
+  .settings-row { align-items: flex-start; padding: 18px; }
+  .settings-divider { margin-left: 70px; }
+  .settings-action { margin-top: 2px; padding: 8px; }
+  .settings-action span { display: none; }
+  .settings-github-row { flex-wrap: wrap; }
+  .settings-github-row .settings-copy { min-width: calc(100% - 52px); }
+  .settings-git-actions { width: 100%; padding-left: 52px; }
+  .settings-git-notice { margin: -2px 18px 18px; }
+}

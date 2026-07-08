@@ -34,10 +34,6 @@ LOGOUT_REDIRECT_URL = FRONTEND_URL
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_DASHBOARD_MODEL = os.environ.get("OLLAMA_DASHBOARD_MODEL", "llama3.1")
 
-# Used by the Developer Mode "Ask Claude to edit" feature (kosmos_app/dev_views.py).
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
-
 # ---------------------------------------------------------------------------
 # SAML — Service Provider (this app)
 # ---------------------------------------------------------------------------
@@ -163,3 +159,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# GitHub workflow used by Profile > Settings.
+# Application files are edited inside the 1Kosmos workspace, while the
+# existing Git metadata lives one directory above it.
+GIT_REPOSITORY_ROOT = BASE_DIR.parent.resolve()
+GIT_DIRECTORY = (BASE_DIR.parents[1] / ".git").resolve()
+GIT_TRACKED_PATHS = ("kosmos", "kosmos_frontend")
+GIT_EXCLUDED_PATHS = (
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.log",
+    "**/*.err.log",
+    "kosmos/db.sqlite3",
+    "kosmos/venv/**",
+    "kosmos_frontend/node_modules/**",
+    "kosmos_frontend/build/**",
+)
+GIT_REPOSITORY_URL = "https://github.com/prabhatkrr562-ctrl/1Kosmos.git"
+GIT_REMOTE_NAME = "origin"
+GIT_MAIN_BRANCH = "main"
+GIT_BRANCH_PREFIX = "kosmos/frontend-"
+GIT_STATUS_REFRESH_INTERVAL_MS = 1000
