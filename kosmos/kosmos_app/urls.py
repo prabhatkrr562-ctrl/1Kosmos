@@ -29,4 +29,6 @@ urlpatterns = [
     path('api/ai/context/', require_session(ai_views.ai_context), name='ai-context'),
     path('api/ai/chat/', require_session(ai_views.ai_chat), name='ai-chat'),
     path('api/dev/source-code/', require_session(dev_views.dev_source_code), name='dev-source-code'),
+    path('api/dev/ai-edit/', require_session(dev_views.dev_ai_edit), name='dev-ai-edit'),
+    path('api/dev/ai-apply/', require_session(dev_views.dev_ai_apply), name='dev-ai-apply'),
 ]

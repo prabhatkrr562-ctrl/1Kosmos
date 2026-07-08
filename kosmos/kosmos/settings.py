@@ -34,6 +34,10 @@ LOGOUT_REDIRECT_URL = FRONTEND_URL
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 OLLAMA_DASHBOARD_MODEL = os.environ.get("OLLAMA_DASHBOARD_MODEL", "llama3.1")
 
+# Used by the Developer Mode "Ask Claude to edit" feature (kosmos_app/dev_views.py).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+
 # ---------------------------------------------------------------------------
 # SAML — Service Provider (this app)
 # ---------------------------------------------------------------------------
