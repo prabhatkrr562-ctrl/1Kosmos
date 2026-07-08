@@ -692,7 +692,7 @@ function AgingView({ data: sourceData, asOf }) {
         <>
             <div className="ar-kpi-grid">
                 <div onClick={() => setShowBilledARModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={1} label="Billed AR O/S" value={fmt(kpi.total_ar)} sub={`${data.records.length} line items`} ico="💰" />
+                    <KCard variant={1} label="Billed AR O/S Prabhat" value={fmt(kpi.total_ar)} sub={`${data.records.length} line items`} ico="💰" />
                 </div>
                 <div onClick={() => setShowOverdueModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                     <KCard variant={2} label="Total Overdue" value={fmt(kpi.overdue)} sub={`${Math.round(kpi.overdue_percent || 0)}% of AR`} ico="⚠" />
