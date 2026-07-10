@@ -10,6 +10,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from .access import has_app_access
 from .models import ARDataImport, DataImport, PipelineImport
 from .pipeline_views.shared import ACTIVE_STAGES, AOP, SALES_TARGET, STAGE_ORDER, _week_sort_key
 
@@ -937,6 +938,8 @@ def _call_ollama(question, context, docs, messages):
 @require_GET
 def ai_context(request):
     dashboard = request.GET.get("dashboard", "pipeline").strip().lower()
+    if not has_app_access(request.user, dashboard):
+        return JsonResponse({"error": "You do not have access to this dashboard."}, status=403)
     filters = _selected_filters(request.GET)
     filters.pop("dashboard", None)
     return JsonResponse({
@@ -955,6 +958,8 @@ def ai_chat(request):
         return JsonResponse({"error": "Invalid JSON body."}, status=400)
 
     dashboard = str(payload.get("dashboard") or "pipeline").strip().lower()
+    if not has_app_access(request.user, dashboard):
+        return JsonResponse({"error": "You do not have access to this dashboard."}, status=403)
     question = str(payload.get("question") or "").strip()
     if not question:
         return JsonResponse({"error": "Question is required."}, status=400)

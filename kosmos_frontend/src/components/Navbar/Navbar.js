@@ -12,6 +12,8 @@ function Navbar({ active = 'arr', user, onLogout }) {
     const displayName = user?.name || user?.username || 'User';
     const email       = user?.email || '';
     const initial     = displayName.trim().charAt(0).toUpperCase() || 'U';
+    const access      = user?.isSuperuser ? NAV.map((item) => item.id) : (user?.access || []);
+    const visibleNav  = NAV.filter((item) => access.includes(item.id));
 
     const [open, setOpen] = useState(false);
     const dropRef = useRef(null);
@@ -32,7 +34,7 @@ function Navbar({ active = 'arr', user, onLogout }) {
 
     return (
         <nav className="navbar">
-            <a className="nb-logo" href="/ar">
+            <a className="nb-logo" href={visibleNav[0]?.href || '/settings'} onClick={(event) => go(event, visibleNav[0]?.href || '/settings')}>
                 <img className="nb-brand-icon" src={oneKosmosIcon} alt="1Kosmos" />
                 <div className="nb-logo-text">
                     <span className="nb-name">1Kosmos</span>
@@ -41,7 +43,7 @@ function Navbar({ active = 'arr', user, onLogout }) {
             </a>
 
             <ul className="nb-links">
-                {NAV.map(n => (
+                {visibleNav.map(n => (
                     <li key={n.id}>
                         <a href={n.href} onClick={(event) => go(event, n.href)} className={active === n.id ? 'active' : ''}>{n.label}</a>
                     </li>
@@ -78,15 +80,17 @@ function Navbar({ active = 'arr', user, onLogout }) {
                                 </span>
                                 Your Profile
                             </button>
-                            <button
-                                className={`nb-dd-item${window.location.pathname === '/settings' ? ' active' : ''}`}
-                                onClick={(event) => { setOpen(false); go(event, '/settings'); }}
-                            >
-                                <span className="nb-dd-icon-wrap">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
-                                </span>
-                                Settings
-                            </button>
+                            {(user?.isSuperuser || user?.access?.includes('administrator')) && (
+                                <button
+                                    className={`nb-dd-item${window.location.pathname === '/settings' ? ' active' : ''}`}
+                                    onClick={(event) => { setOpen(false); go(event, '/settings'); }}
+                                >
+                                    <span className="nb-dd-icon-wrap">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+                                    </span>
+                                    Settings
+                                </button>
+                            )}
                         </div>
 
                         <div className="nb-dd-divider" />

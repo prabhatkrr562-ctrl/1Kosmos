@@ -13,6 +13,7 @@ import { DevOverlay }       from '../components/DevOverlay/DevOverlay';
 import { DashboardLoader }  from '../components/DashboardLoader/DashboardLoader';
 import { DashboardAIChat }  from '../components/DashboardAIChat/DashboardAIChat';
 import { API_URL } from '../config/api';
+import { readApiJson } from '../utils/apiErrors';
 
 const TABS = [
   { id: 'arr',      label: 'ARR Dashboard', dot: '#1877f2', component: 'ARRDashboard' },
@@ -50,8 +51,7 @@ function Dashboard() {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/dashboard/${query ? `?${query}` : ''}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Dashboard API unavailable. Check Django is running on port 8000.');
-      setData(await res.json());
+      setData(await readApiJson(res, 'Dashboard API unavailable. Check Django is running on port 8000.'));
     } catch (e) {
       setMsg(e.message);
     } finally {
@@ -71,8 +71,7 @@ function Dashboard() {
     fd.append('file', file);
     try {
       const res = await fetch(`${API_URL}/api/import/`, { method: 'POST', body: fd, credentials: 'include' });
-      const r = await res.json();
-      if (!res.ok) throw new Error(r.error || 'Import failed.');
+      const r = await readApiJson(res, 'Import failed.');
       setFilters({});
       setMsg(r.message);
       await load();

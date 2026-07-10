@@ -13,6 +13,7 @@ from .saml import (
     idp_is_configured,
     prepare_django_request,
 )
+from .access import user_access_keys
 
 
 def _saml_auth(request):
@@ -31,6 +32,9 @@ def _me_response(request):
                 "username": request.user.get_username(),
                 "email": request.user.email,
                 "name": request.user.get_full_name() or request.user.get_username(),
+                "isStaff": request.user.is_staff,
+                "isSuperuser": request.user.is_superuser,
+                "access": user_access_keys(request.user),
             },
         }
     )

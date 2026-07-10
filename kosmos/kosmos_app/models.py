@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -273,3 +274,40 @@ class PipelineRecord(models.Model):
 
     def __str__(self):
         return self.deal_name or self.record_id
+
+
+class AccessRoleAssignment(models.Model):
+    ROLE_ADMINISTRATOR = "administrator"
+    ROLE_PIPELINE = "pipeline"
+    ROLE_AR = "ar"
+    ROLE_ARR = "arr"
+
+    ROLE_CHOICES = [
+        (ROLE_ADMINISTRATOR, "Administrator"),
+        (ROLE_PIPELINE, "Pipeline Dashboard"),
+        (ROLE_AR, "A/R Dashboard"),
+        (ROLE_ARR, "ARR Dashboard"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="access_role_assignments",
+        on_delete=models.CASCADE,
+    )
+    role = models.CharField(max_length=40, choices=ROLE_CHOICES)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    last_updated_by = models.CharField(max_length=150, blank=True)
+    last_updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_updated_date", "user__username", "role"]
+        indexes = [
+            models.Index(fields=["user", "role", "end_date"]),
+            models.Index(fields=["role", "start_date", "end_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.role}"
