@@ -33,4 +33,6 @@ urlpatterns = [
     path('api/git/status/', require_session(git_views.git_status), name='git-status'),
     path('api/git/push/', require_session(git_views.git_push), name='git-push'),
     path('api/git/pull/', require_session(git_views.git_pull), name='git-pull'),
+    path('api/git/restore-previous/', require_session(git_views.git_restore_previous), name='git-restore-previous'),
+    path('api/git/revert-previous/', require_session(git_views.git_revert_previous), name='git-revert-previous'),
 ]
