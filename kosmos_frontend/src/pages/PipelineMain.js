@@ -18,6 +18,7 @@ import { Commentary }     from './Pipeline_Elements/Commentary';
 import { DevOverlay }     from '../components/DevOverlay/DevOverlay';
 import { DashboardLoader } from '../components/DashboardLoader/DashboardLoader';
 import { DashboardAIChat } from '../components/DashboardAIChat/DashboardAIChat';
+import { readApiJson } from '../utils/apiErrors';
 
 const TABS = [
   { id: 'exec',      label: '📊 Executive',                  dot: '#1877f2', component: 'Executive' },
@@ -61,9 +62,9 @@ function Pipeline() {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
     fetch(`/api/pipeline/?${params}`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => readApiJson(r, 'Pipeline dashboard API unavailable. Check Django is running on port 8000.'))
       .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(error => { setImportMsg(error.message); setLoading(false); });
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -76,13 +77,13 @@ function Pipeline() {
     setImporting(true);
     setImportMsg('');
     fetch('/api/pipeline/import/', { method: 'POST', body: fd, credentials: 'include' })
-      .then(r => r.json())
+      .then(r => readApiJson(r, 'Upload failed.'))
       .then(d => {
-        setImportMsg(d.message || d.error || 'Done');
+        setImportMsg(d.message || 'Done');
         setImporting(false);
         if (d.message) fetchData();
       })
-      .catch(() => { setImportMsg('Upload failed.'); setImporting(false); });
+      .catch(error => { setImportMsg(error.message); setImporting(false); });
   }, [fetchData]);
 
   const setFilter = (key, val) => setFilters(f => ({ ...f, [key]: val }));

@@ -46,10 +46,11 @@ SAML_SP_SLO_URL   = "http://localhost:8000/api/auth/saml/logout/"
 # SAML — Identity Provider (1Kosmos)
 # Paste the values from your 1Kosmos SAML app metadata here.
 # ---------------------------------------------------------------------------
-SAML_IDP_ENTITY_ID = ""           # e.g. "https://your-tenant.1kosmos.net/..."
-SAML_IDP_SSO_URL   = ""           # e.g. "https://your-tenant.1kosmos.net/sso/saml"
-SAML_IDP_X509_CERT = ""           # paste the base64 cert string (no header/footer needed)
-SAML_IDP_SLO_URL   = ""           # leave blank if not using single-logout
+SAML_IDP_ENTITY_ID = "https://sts.windows.net/c5ad11cd-90c7-437a-8ae3-61f37f51182e/"           # e.g. "https://your-tenant.1kosmos.net/..."
+SAML_IDP_SSO_URL   = "https://login.microsoftonline.com/c5ad11cd-90c7-437a-8ae3-61f37f51182e/saml2"           # e.g. "https://your-tenant.1kosmos.net/sso/saml"
+SAML_IDP_X509_CERT = "MIIC8DCCAdigAwIBAgIQI89DPYCDXZJLFYHK9YnuwTANBgkqhkiG9w0BAQsFADA0MTIwMAYDVQQDEylNaWNyb3NvZnQgQXp1cmUgRmVkZXJhdGVkIFNTTyBDZXJ0aWZpY2F0ZTAeFw0yNjA3MDEwODI3MjZaFw0yOTA3MDEwODI3MjdaMDQxMjAwBgNVBAMTKU1pY3Jvc29mdCBBenVyZSBGZWRlcmF0ZWQgU1NPIENlcnRpZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA22nkaKHn0a4rLGtkzw5G3bY+sxwIBFjEV0ddxwIaxULMQTWyQEFJ6x6xXxh2K7pUPauBy58eTxQBjkK6iTea2yYOtBCDZ08fSEJ0NbSp30EHtVKIazgln0M7/M+ymbxcnMmsbeSzHjgj2W3RMANvWhbOGbaXXDpN4hU0tpXiqGk+ybMFoHrvKb8StEvb/jXWxCeMSfPYiCQ+3xqKXHP6pOzTyFn+ny6PCtEvrSYroswUCCm+K5P+CXKj01QimHz40KWnYtluL44We854Z6TJF6rs57A0eg2ug97caCS9uNnhhw5AMDJfKtLHwjdudBTleat8OAaqovK7UTcl1OL3yQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCWMFbX3j8amUKi/ejy7AC/HXxeigKBUEtVC6Y0V2Vp6DfA4A9le/m2lHXMPYGOvwAoF8A38CI2zg8DzGMW7apxlRu0K+55sUo1JZD4MhhfznebzRQAEfTcNpZgfUBJskqRkY2T90ZlnEDiLIiC1Un/wg19tgtF9WR1TkYEdt290dP3BVM7ySOXd0c4zO7UrWHZfXEttYgrAROivODY5a4H4QZrRymfkXduljSojPdSpB3oy1FaPWxsBvYxVbzWgEPyZsh3YoWDd695tMdW0ZNNpCVPbMugcZuDUh9bJF56dfH3ZFlGvZvd6dlWciNc7UPvi9qZUoCEclMpOEGwjpJL"
+# paste the base64 cert string (no header/footer needed)
+SAML_IDP_SLO_URL   = "https://login.microsoftonline.com/c5ad11cd-90c7-437a-8ae3-61f37f51182e/saml2"           # leave blank if not using single-logout
 
 SAML_STRICT              = False
 SAML_DEBUG               = True

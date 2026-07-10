@@ -13,7 +13,7 @@ test('redirects app startup to the A/R dashboard', async () => {
         ok: true,
         json: () => Promise.resolve({
           authenticated: true,
-          user: { username: 'admin', name: 'Admin User' },
+          user: { username: 'admin', name: 'Admin User', access: ['ar'] },
         }),
       });
     }

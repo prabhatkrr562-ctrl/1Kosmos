@@ -11,6 +11,7 @@ import { DevOverlay }        from '../components/DevOverlay/DevOverlay';
 import { DashboardLoader }   from '../components/DashboardLoader/DashboardLoader';
 import { DashboardAIChat }   from '../components/DashboardAIChat/DashboardAIChat';
 import { API_URL } from '../config/api';
+import { readApiJson, PERMISSION_DENIED_MESSAGE } from '../utils/apiErrors';
 
 const TABS = [
     { id: 'aging',       label: 'AR Aging',           dot: '#1877f2', component: 'AgingView' },
@@ -41,10 +42,9 @@ function ARDashboard() {
         setLoading(true);
         try {
             const res = await fetch(`${API_URL}/api/ar/dashboard/${query ? `?${query}` : ''}`, { credentials: 'include' });
-            if (!res.ok) throw new Error('The AR dashboard API could not be loaded.');
-            setData(await res.json());
+            setData(await readApiJson(res, 'The AR dashboard API could not be loaded.'));
         } catch (err) {
-            setMessage(`${err.message} Check that Django is running on port 8000.`);
+            setMessage(err.message === PERMISSION_DENIED_MESSAGE ? err.message : `${err.message} Check that Django is running on port 8000.`);
         } finally {
             setLoading(false);
         }
@@ -61,8 +61,7 @@ function ARDashboard() {
         if (table) fd.append('table', table);
         try {
             const res = await fetch(`${API_URL}/api/ar/import/`, { method: 'POST', body: fd, credentials: 'include' });
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || 'AR import failed.');
+            const result = await readApiJson(res, 'AR import failed.');
             if (mode === 'replace') setFilters({});
             setMessage(result.message);
             await loadDashboard();
