@@ -124,6 +124,12 @@ def _remote_branch_exists(branch):
     return bool(_git("ls-remote", "--heads", REMOTE_NAME, f"refs/heads/{branch}"))
 
 
+def _stable_versions(ref=MAIN_BRANCH):
+    stable = _git("rev-parse", "--verify", ref, check=False)
+    previous = _git("rev-parse", "--verify", f"{ref}^1", check=False)
+    return stable, previous
+
+
 def _ensure_repository_ready():
     if _git("rev-parse", "--is-inside-work-tree") != "true":
         raise GitError("The configured directory is not a Git repository.")
@@ -163,6 +169,7 @@ def git_status(request):
             _ensure_repository_ready()
             working_status = _working_tree_status()
             changed_files = _changed_files(working_status)
+            stable_version, previous_version = _stable_versions()
             return JsonResponse({
                 "repository": _github_url(REPOSITORY_URL),
                 "remote": REPOSITORY_URL,
@@ -171,6 +178,9 @@ def git_status(request):
                 "latestBranch": _latest_generated_branch(),
                 "hasChanges": bool(changed_files),
                 "changedFiles": changed_files,
+                "stableVersion": stable_version[:12],
+                "previousVersion": previous_version[:12],
+                "canRestorePrevious": bool(previous_version),
                 "refreshIntervalMs": settings.GIT_STATUS_REFRESH_INTERVAL_MS,
             })
     except GitError as exc:
@@ -270,6 +280,76 @@ def git_pull(request):
             "mainBranch": MAIN_BRANCH,
         })
     except (GitError, subprocess.TimeoutExpired) as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    finally:
+        _GIT_LOCK.release()
+
+
+@csrf_exempt
+@require_POST
+def git_restore_previous(request):
+    """Restore the previous stable main version in the local worktree only."""
+    if not _GIT_LOCK.acquire(timeout=10):
+        return JsonResponse({"error": "Another Git operation is taking too long. Please try again."}, status=409)
+    try:
+        _ensure_repository_ready()
+        if _working_tree_status():
+            raise GitError("Push or clear local changes before restoring a previous version.")
+        stable_version, previous_version = _stable_versions()
+        if not stable_version or not previous_version:
+            raise GitError("No previous stable version is available.")
+        _git("restore", "--source", previous_version, "--worktree", "--", *TRACKED_PATHS)
+        return JsonResponse({
+            "message": f"Restored previous version {previous_version[:12]} locally. GitHub was not changed.",
+            "version": previous_version[:12],
+        })
+    except GitError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    finally:
+        _GIT_LOCK.release()
+
+
+@csrf_exempt
+@require_POST
+def git_revert_previous(request):
+    """Publish the previous stable main tree as a new commit on GitHub."""
+    if not _GIT_LOCK.acquire(timeout=10):
+        return JsonResponse({"error": "Another Git operation is taking too long. Please try again."}, status=409)
+    try:
+        _ensure_repository_ready()
+        _configure_remote()
+        if _working_tree_status():
+            raise GitError("Push or clear local changes before reverting GitHub.")
+        if not _remote_branch_exists(MAIN_BRANCH):
+            raise GitError(f"Remote branch {MAIN_BRANCH} does not exist.")
+        _git("fetch", REMOTE_NAME, MAIN_BRANCH)
+        remote_main = f"{REMOTE_NAME}/{MAIN_BRANCH}"
+        stable_version, previous_version = _stable_versions(remote_main)
+        if not stable_version or not previous_version:
+            raise GitError("No previous stable version is available on GitHub.")
+
+        revert_dir = Path(tempfile.mkdtemp(prefix="kosmos-revert-"))
+        revert_dir.rmdir()
+        try:
+            _repository_git("worktree", "add", "--detach", str(revert_dir), stable_version)
+            _worktree_git(revert_dir, "restore", "--source", previous_version,
+                          "--staged", "--worktree", "--", *TRACKED_PATHS)
+            _worktree_git(revert_dir, "commit", "--no-verify", "-m",
+                          f"Restore previous stable version {previous_version[:12]}")
+            reverted_commit = _worktree_git(revert_dir, "rev-parse", "HEAD")
+            _worktree_git(revert_dir, "push", REMOTE_NAME, f"HEAD:{MAIN_BRANCH}")
+        finally:
+            _repository_git("worktree", "remove", "--force", str(revert_dir), check=False)
+
+        _repository_git("update-ref", f"refs/heads/{MAIN_BRANCH}", reverted_commit)
+        _repository_git("symbolic-ref", "HEAD", f"refs/heads/{MAIN_BRANCH}")
+        _git("restore", "--source", reverted_commit, "--staged", "--worktree", "--", *TRACKED_PATHS)
+        _git("reset", "--mixed", reverted_commit)
+        return JsonResponse({
+            "message": f"GitHub {MAIN_BRANCH} now uses previous version {previous_version[:12]}.",
+            "version": previous_version[:12],
+        })
+    except GitError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
     finally:
         _GIT_LOCK.release()

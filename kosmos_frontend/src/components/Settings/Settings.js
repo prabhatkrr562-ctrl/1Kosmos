@@ -33,6 +33,8 @@ function Settings() {
 
     const runGitAction = async (action) => {
         if (action === 'pull' && !window.confirm(`Merge the latest generated branch into ${git.data?.mainBranch || 'main'}?`)) return;
+        if (action === 'restore-previous' && !window.confirm('Restore the previous stable version locally? GitHub will not be changed.')) return;
+        if (action === 'revert-previous' && !window.confirm(`Restore the previous stable version on GitHub ${git.data?.mainBranch || 'main'}? This creates a rollback commit.`)) return;
         setGit((state) => ({ ...state, action, message: '', error: '' }));
         try {
             const response = await fetch(`${API_URL}/api/git/${action}/`, {
@@ -87,6 +89,7 @@ function Settings() {
                                         ? `${git.data.changedFiles.length} local file${git.data.changedFiles.length === 1 ? '' : 's'} changed`
                                         : 'No local changes'}
                                 </p>
+                                {git.data.stableVersion && <p>Stable: <strong>{git.data.stableVersion}</strong>{git.data.previousVersion && <> · Previous: <strong>{git.data.previousVersion}</strong></>}</p>}
                             </>
                         ) : <p>Repository information is unavailable.</p>}
                     </div>
@@ -102,6 +105,18 @@ function Settings() {
                             onClick={() => runGitAction('pull')}
                             title={git.data?.hasChanges ? 'Push or clear local changes first' : 'Merge the latest branch into main'}>
                             {git.action === 'pull' ? 'Merging...' : 'Pull'}
+                        </button>
+                        <button type="button" className="settings-action"
+                            disabled={Boolean(git.action) || git.loading || !git.data?.canRestorePrevious || git.data?.hasChanges}
+                            onClick={() => runGitAction('restore-previous')}
+                            title="Restore the previous stable version locally without changing GitHub">
+                            {git.action === 'restore-previous' ? 'Restoring...' : 'Previous (Local)'}
+                        </button>
+                        <button type="button" className="settings-action settings-action-danger"
+                            disabled={Boolean(git.action) || git.loading || !git.data?.canRestorePrevious || git.data?.hasChanges}
+                            onClick={() => runGitAction('revert-previous')}
+                            title="Create a rollback commit on GitHub main">
+                            {git.action === 'revert-previous' ? 'Reverting...' : 'Previous (GitHub)'}
                         </button>
                     </div>
                 </div>
