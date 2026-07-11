@@ -80,7 +80,7 @@ function Navbar({ active = 'arr', user, onLogout }) {
                                 </span>
                                 Your Profile
                             </button>
-                            {(user?.isSuperuser || user?.access?.includes('administrator')) && (
+                            {(user?.isSuperuser || user?.access?.includes('administrator') || user?.access?.includes('developer')) && (
                                 <button
                                     className={`nb-dd-item${window.location.pathname === '/settings' ? ' active' : ''}`}
                                     onClick={(event) => { setOpen(false); go(event, '/settings'); }}

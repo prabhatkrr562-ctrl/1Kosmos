@@ -12,6 +12,12 @@ ACCESS_ROLES = [
         "description": "Can manage settings and assign access to other users.",
     },
     {
+        "key": "developer",
+        "label": "Developer",
+        "group": "Developer",
+        "description": "Can open GitHub repository controls from Settings.",
+    },
+    {
         "key": "pipeline",
         "label": "Pipeline Dashboard",
         "group": "Pipeline Dashboard",
