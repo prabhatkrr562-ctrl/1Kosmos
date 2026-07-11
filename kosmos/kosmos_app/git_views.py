@@ -135,6 +135,22 @@ def _next_generated_branch():
     return f"{BRANCH_PREFIX}{max(versions, default=0) + 1}"
 
 
+def _merged_release_versions():
+    """Return numeric release branches already contained in stable main."""
+    refs = _git(
+        "branch", "--merged", MAIN_BRANCH, "--format=%(refname:short)",
+        "--list", f"{BRANCH_PREFIX}*", check=False,
+    ).splitlines()
+    pattern = re.compile(rf"^{re.escape(BRANCH_PREFIX)}(\d+)$")
+    releases = []
+    for ref in refs:
+        branch = ref.strip()
+        match = pattern.fullmatch(branch)
+        if match:
+            releases.append((int(match.group(1)), branch))
+    return [branch for _, branch in sorted(releases, reverse=True)]
+
+
 def _local_branch_exists(branch):
     return bool(_git("show-ref", "--verify", f"refs/heads/{branch}", check=False))
 
@@ -263,7 +279,8 @@ def git_status(request):
             changed_files = _changed_files(working_status)
             changes = _working_tree_changes()
             history = _git_history()
-            stable_version, previous_version = _stable_versions()
+            stable_commit, previous_commit = _stable_versions()
+            merged_releases = _merged_release_versions()
             return JsonResponse({
                 "repository": _github_url(REPOSITORY_URL),
                 "remote": REPOSITORY_URL,
@@ -275,9 +292,11 @@ def git_status(request):
                 "changedFiles": changed_files,
                 "changes": changes,
                 "history": history,
-                "stableVersion": stable_version[:12],
-                "previousVersion": previous_version[:12],
-                "canRestorePrevious": bool(previous_version),
+                "stableVersion": merged_releases[0] if merged_releases else "",
+                "previousVersion": merged_releases[1] if len(merged_releases) > 1 else "",
+                "stableCommit": stable_commit[:12],
+                "previousCommit": previous_commit[:12],
+                "canRestorePrevious": bool(previous_commit),
                 "refreshIntervalMs": settings.GIT_STATUS_REFRESH_INTERVAL_MS,
             })
     except GitError as exc:
