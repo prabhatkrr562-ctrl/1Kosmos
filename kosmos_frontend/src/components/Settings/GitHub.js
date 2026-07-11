@@ -156,7 +156,6 @@ export default function GitHub() {
                 </ActionPanel>
 
                 <ActionPanel recovery kicker="Version control" title="Recovery" badge="Use with care" description="Recover the previous stable repository version.">
-                    <ActionButton icon="Back" title={git.action === 'restore-previous' ? 'Restoring locally...' : 'Restore locally'} detail="GitHub unchanged" disabled={blocked || !git.data?.canRestorePrevious || git.data?.hasChanges} onClick={() => runGitAction('restore-previous')} />
                     <ActionButton danger icon="Back" title={git.action === 'revert-previous' ? 'Publishing rollback...' : 'Rollback GitHub'} detail="Revert stable branch" disabled={blocked || !git.data?.canRestorePrevious || git.data?.hasChanges} onClick={() => runGitAction('revert-previous')} />
                 </ActionPanel>
             </div>
