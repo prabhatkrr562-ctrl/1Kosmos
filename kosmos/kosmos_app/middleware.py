@@ -55,3 +55,20 @@ def require_app_access(access_key):
         return wrapped
 
     return decorator
+
+
+def require_any_app_access(*access_keys):
+    def decorator(view_func):
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "Authentication required."}, status=401)
+            if not any(has_app_access(request.user, access_key) for access_key in access_keys):
+                return JsonResponse({"error": "You do not have access to this area."}, status=403)
+            return view_func(request, *args, **kwargs)
+
+        if getattr(view_func, "csrf_exempt", False):
+            wrapped.csrf_exempt = True
+            return csrf_exempt(wrapped)
+        return wrapped
+
+    return decorator

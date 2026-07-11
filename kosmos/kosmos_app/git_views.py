@@ -1,7 +1,8 @@
+import json
+import re
 import subprocess
 import tempfile
 import threading
-from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -106,14 +107,32 @@ def _current_branch():
     return branch
 
 
-def _latest_generated_branch():
-    branches = _git(
+def _version_branches():
+    """Return generated branches indexed by numeric version."""
+    refs = _git(
         "for-each-ref",
-        "--sort=-committerdate",
         "--format=%(refname:short)",
         f"refs/heads/{BRANCH_PREFIX}*",
+        f"refs/remotes/{REMOTE_NAME}/{BRANCH_PREFIX}*",
     ).splitlines()
-    return branches[0].strip() if branches else ""
+    pattern = re.compile(rf"^{re.escape(BRANCH_PREFIX)}(\d+)$")
+    versions = {}
+    for ref in refs:
+        branch = ref.strip().removeprefix(f"{REMOTE_NAME}/")
+        match = pattern.fullmatch(branch)
+        if match:
+            versions[int(match.group(1))] = branch
+    return versions
+
+
+def _latest_generated_branch():
+    versions = _version_branches()
+    return versions[max(versions)] if versions else ""
+
+
+def _next_generated_branch():
+    versions = _version_branches()
+    return f"{BRANCH_PREFIX}{max(versions, default=0) + 1}"
 
 
 def _local_branch_exists(branch):
@@ -146,6 +165,79 @@ def _working_tree_status():
     return "\n".join(dict.fromkeys((*tracked, *untracked)))
 
 
+def _working_tree_changes():
+    """Return user-friendly status details for the configured source paths."""
+    entries = []
+    tracked = _git("diff", "HEAD", "--name-status", "--", *_source_pathspecs())
+    labels = {
+        "A": "Added", "C": "Copied", "D": "Deleted", "M": "Modified",
+        "R": "Renamed", "T": "Changed",
+    }
+    for line in tracked.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        code = parts[0][:1]
+        entries.append({
+            "path": parts[-1].strip('"'),
+            "status": labels.get(code, "Modified"),
+            "code": code,
+        })
+
+    tracked_paths = {entry["path"] for entry in entries}
+    untracked = _git(
+        "ls-files", "--others", "--exclude-standard", "--", *_source_pathspecs()
+    )
+    for path in untracked.splitlines():
+        clean_path = path.strip().strip('"')
+        if clean_path and clean_path not in tracked_paths:
+            entries.append({"path": clean_path, "status": "Added", "code": "A"})
+    return entries
+
+
+def _git_history():
+    """Return repository activity for the Git Audit view."""
+    output = _git(
+        "log", "--all", "--date=iso-strict",
+        "--pretty=format:%H%x1f%h%x1f%an%x1f%ae%x1f%aI%x1f%s%x1f%D%x1f%P%x1e",
+        check=False,
+    )
+    history = []
+    for record in output.split("\x1e"):
+        fields = record.strip().split("\x1f")
+        if len(fields) != 8:
+            continue
+        commit_hash, short_hash, author, email, committed_at, subject, refs, parents = fields
+        parent_count = len(parents.split())
+        lowered_subject = subject.lower()
+        if parent_count > 1 or lowered_subject.startswith("merge "):
+            event = "Merge"
+        elif "restore" in lowered_subject or "revert" in lowered_subject or "rollback" in lowered_subject:
+            event = "Rollback"
+        else:
+            event = "Commit"
+        history.append({
+            "hash": commit_hash,
+            "shortHash": short_hash,
+            "author": author,
+            "email": email,
+            "committedAt": committed_at,
+            "message": subject,
+            "refs": refs,
+            "event": event,
+        })
+    return history
+
+
+def _request_json(request):
+    if not request.body:
+        return {}
+    try:
+        return json.loads(request.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GitError("The Git request is invalid.") from exc
+
+
 def _source_pathspecs():
     exclusions = tuple(f":(exclude,glob){path}" for path in EXCLUDED_PATHS)
     return (*TRACKED_PATHS, *exclusions)
@@ -169,6 +261,8 @@ def git_status(request):
             _ensure_repository_ready()
             working_status = _working_tree_status()
             changed_files = _changed_files(working_status)
+            changes = _working_tree_changes()
+            history = _git_history()
             stable_version, previous_version = _stable_versions()
             return JsonResponse({
                 "repository": _github_url(REPOSITORY_URL),
@@ -176,8 +270,11 @@ def git_status(request):
                 "branch": _current_branch(),
                 "mainBranch": MAIN_BRANCH,
                 "latestBranch": _latest_generated_branch(),
+                "nextBranch": _next_generated_branch(),
                 "hasChanges": bool(changed_files),
                 "changedFiles": changed_files,
+                "changes": changes,
+                "history": history,
                 "stableVersion": stable_version[:12],
                 "previousVersion": previous_version[:12],
                 "canRestorePrevious": bool(previous_version),
@@ -200,26 +297,25 @@ def git_push(request):
         if not changed_files:
             raise GitError("There are no local changes to push.")
 
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
-        created_branch = f"{BRANCH_PREFIX}{stamp}"
-        current_branch = _current_branch()
-        if current_branch.startswith(BRANCH_PREFIX) and not _git(
-            "log", "-1", "--format=%s"
-        ).startswith("Kosmos frontend push"):
-            # Reuse a branch left by a previous failed attempt rather than
-            # creating a trail of empty branches.
-            created_branch = current_branch
-        else:
-            _git("switch", "-c", created_branch)
+        payload = _request_json(request)
+        commit_message = str(payload.get("commitMessage", "")).strip()
+        if not commit_message:
+            raise GitError("Enter a commit message before pushing changes.")
+        if len(commit_message) > 200:
+            raise GitError("The commit message must be 200 characters or fewer.")
+
+        created_branch = _next_generated_branch()
+        _git("switch", "-c", created_branch)
         # Stage only real source changes. Passing the top-level frontend path
         # makes Git reject ignored runtime folders such as build/node_modules.
         _git("add", "--all", "--", *changed_files)
-        _git("commit", "--no-verify", "-m", f"Kosmos frontend push {stamp} UTC")
+        _git("commit", "--no-verify", "-m", commit_message)
         _git("push", "--set-upstream", REMOTE_NAME, created_branch)
 
         return JsonResponse({
             "message": f"Created and pushed {created_branch}.",
             "branch": created_branch,
+            "commitMessage": commit_message,
             "repository": _github_url(REPOSITORY_URL),
         })
     except GitError as exc:

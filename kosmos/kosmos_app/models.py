@@ -278,12 +278,14 @@ class PipelineRecord(models.Model):
 
 class AccessRoleAssignment(models.Model):
     ROLE_ADMINISTRATOR = "administrator"
+    ROLE_DEVELOPER = "developer"
     ROLE_PIPELINE = "pipeline"
     ROLE_AR = "ar"
     ROLE_ARR = "arr"
 
     ROLE_CHOICES = [
         (ROLE_ADMINISTRATOR, "Administrator"),
+        (ROLE_DEVELOPER, "Developer"),
         (ROLE_PIPELINE, "Pipeline Dashboard"),
         (ROLE_AR, "A/R Dashboard"),
         (ROLE_ARR, "ARR Dashboard"),
@@ -297,6 +299,7 @@ class AccessRoleAssignment(models.Model):
     role = models.CharField(max_length=40, choices=ROLE_CHOICES)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
     created_by = models.CharField(max_length=150, blank=True)
     created_date = models.DateTimeField(auto_now_add=True)
     last_updated_by = models.CharField(max_length=150, blank=True)
@@ -311,3 +314,69 @@ class AccessRoleAssignment(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.role}"
+
+
+class AccessUserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        related_name="access_profile",
+        on_delete=models.CASCADE,
+    )
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    last_updated_by = models.CharField(max_length=150, blank=True)
+    last_updated_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["start_date", "end_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} access profile"
+
+
+class AccessAuditLog(models.Model):
+    ACTION_USER_CREATED = "user_created"
+    ACTION_USER_UPDATED = "user_updated"
+    ACTION_ACCESS_CHANGED = "access_changed"
+    ACTION_ROLE_GRANTED = "role_granted"
+    ACTION_ROLE_REVOKED = "role_revoked"
+    ACTION_USER_ACTIVATED = "user_activated"
+    ACTION_USER_DEACTIVATED = "user_deactivated"
+    ACTION_USER_REVOKED = "user_revoked"
+
+    ACTION_CHOICES = [
+        (ACTION_USER_CREATED, "User Created"),
+        (ACTION_USER_UPDATED, "User Updated"),
+        (ACTION_ACCESS_CHANGED, "Access Changed"),
+        (ACTION_ROLE_GRANTED, "Role Granted"),
+        (ACTION_ROLE_REVOKED, "Role Revoked"),
+        (ACTION_USER_ACTIVATED, "User Activated"),
+        (ACTION_USER_DEACTIVATED, "User Deactivated"),
+        (ACTION_USER_REVOKED, "User Revoked"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="access_audit_logs",
+        on_delete=models.CASCADE,
+    )
+    action = models.CharField(max_length=40, choices=ACTION_CHOICES)
+    role = models.CharField(max_length=40, blank=True)
+    description = models.TextField()
+    created_by = models.CharField(max_length=150, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_date"]
+        indexes = [
+            models.Index(fields=["user", "created_date"]),
+            models.Index(fields=["action", "created_date"]),
+            models.Index(fields=["role", "created_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.action}"

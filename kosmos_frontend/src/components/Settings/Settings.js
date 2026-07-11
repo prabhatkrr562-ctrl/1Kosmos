@@ -1,8 +1,10 @@
 import { useDevMode } from '../../context/DevModeContext';
 import './Settings.css';
 
-function Settings() {
+function Settings({ user }) {
     const { isDevMode, toggleDevMode } = useDevMode();
+    const canManageAccess = user?.isSuperuser || user?.access?.includes('administrator');
+    const canOpenGitHub = user?.isSuperuser || user?.access?.includes('developer');
     const go = (href) => {
         window.history.pushState(null, '', href);
         window.dispatchEvent(new PopStateEvent('popstate'));
@@ -33,25 +35,29 @@ function Settings() {
             </article>
 
             <section className="settings-hub-actions" aria-label="Settings destinations">
-                <button type="button" className="settings-hub-card settings-hub-card-access" onClick={() => go('/settings/access-control')}>
-                    <span className="settings-hub-icon">AC</span>
-                    <span>
-                        <small>Administration</small>
-                        <strong>Access Control</strong>
-                        <em>Manage users, dashboard access, dates, and audit logs.</em>
-                    </span>
-                    <b>Open</b>
-                </button>
+                {canManageAccess && (
+                    <button type="button" className="settings-hub-card settings-hub-card-access" onClick={() => go('/settings/access-control')}>
+                        <span className="settings-hub-icon">AC</span>
+                        <span>
+                            <small>Administration</small>
+                            <strong>Access Control</strong>
+                            <em>Manage users, dashboard access, dates, and audit logs.</em>
+                        </span>
+                        <b>Open</b>
+                    </button>
+                )}
 
-                <button type="button" className="settings-hub-card settings-hub-card-github" onClick={() => go('/settings/github')}>
-                    <span className="settings-hub-icon">GH</span>
-                    <span>
-                        <small>Source control</small>
-                        <strong>GitHub</strong>
-                        <em>Review repository status, sync changes, and recover versions.</em>
-                    </span>
-                    <b>Open</b>
-                </button>
+                {canOpenGitHub && (
+                    <button type="button" className="settings-hub-card settings-hub-card-github" onClick={() => go('/settings/github')}>
+                        <span className="settings-hub-icon">GH</span>
+                        <span>
+                            <small>Source control</small>
+                            <strong>GitHub</strong>
+                            <em>Review repository status, sync changes, and recover versions.</em>
+                        </span>
+                        <b>Open</b>
+                    </button>
+                )}
             </section>
         </div>
     </section>;
