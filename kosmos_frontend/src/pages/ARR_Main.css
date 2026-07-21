@@ -24,6 +24,41 @@
   font-family: "DM Sans", "Segoe UI", sans-serif;
 }
 
+.arr-date-range {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  transition: opacity .15s ease;
+}
+
+.arr-date-range.disabled {
+  opacity: .5;
+}
+
+.arr-date-separator {
+  color: #8a8d91;
+  font-size: 12px;
+  padding-bottom: 7px;
+}
+
+.dash-filter-month {
+  min-width: 126px;
+  border: 1.5px solid #dddfe2;
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: #f7f8fa;
+  color: #050505;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.dash-filter-month:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 3px rgba(24,119,242,.1);
+  background: #fff;
+}
+
 /* ── Top Navigation ──────────────────────────────────────────────────────── */
 @keyframes navGradientShift {
   0% { background-position: 0% 50%; }
@@ -686,6 +721,14 @@
   overflow: visible;
 }
 
+.gauge-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
 .gauge-grade {
   display: inline-block;
   font-size: 10px;
@@ -703,7 +746,24 @@
   justify-content: center;
   text-align: center;
   padding: 20px 16px 18px;
+  position: relative;
+  overflow: hidden;
 }
+
+/* Reference-style accent strip + tinted shadow per gauge */
+.arr-gauge-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 14px 14px 0 0;
+}
+.arr-gauge-grr { box-shadow: 0 2px 8px rgba(124, 58, 237, .08); }
+.arr-gauge-grr::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.arr-gauge-nrr { box-shadow: 0 2px 8px rgba(8, 145, 178, .08); }
+.arr-gauge-nrr::before { background: linear-gradient(90deg, #0891b2, #22d3ee); }
 
 .arr-gauge-header {
   margin-bottom: 8px;

@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { fmt, fmtN, Card, StageBadge, FcBadge, STAGE_ORDER } from './plShared';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { fmt, Card, StageBadge, FcBadge, STAGE_ORDER } from './plShared';
 import { DrillModal, DealModal, useDrill } from './DrillModal';
+import { API_URL } from '../../config/api';
 
 /* ── Stage shorthands for matrix headers ── */
 const STAGE_SHORT_MX = {
@@ -15,6 +16,46 @@ const STAGE_SHORT_MX = {
 };
 
 const MATRIX_STAGES = STAGE_ORDER; // all 8 stages shown in matrix
+
+// The dashboard endpoint returns compact movement rows, while the dedicated
+// movement endpoint returns full deal metadata. Enrich both shapes here so the
+// first drill and the second deal-detail modal render the same fields.
+function enrichMovement(movement = {}, deals = []) {
+  const byId = new Map();
+  const byName = new Map();
+  deals.forEach(deal => {
+    if (deal.record_id) byId.set(String(deal.record_id), deal);
+    if (deal.deal_name) byName.set(String(deal.deal_name), deal);
+  });
+  const enrich = move => {
+    const match = (move.record_id && byId.get(String(move.record_id))) || byName.get(String(move.deal_name || '')) || {};
+    return {
+      ...match,
+      ...move,
+      stage: move.stage || match.stage || move.to_stage,
+      company: move.company || match.company || '',
+      region: move.region || match.region || '',
+      forecast_category: move.forecast_category || match.forecast_category || '',
+      weighted: move.weighted ?? match.weighted ?? 0,
+      team: move.team || match.team || '',
+      order_type: move.order_type || match.order_type || '',
+      close_quarter: move.close_quarter || match.close_quarter || '',
+      source: move.source || match.source || '',
+      term: move.term || match.term || '',
+      days_open: move.days_open ?? match.days_open,
+      days_stale: move.days_stale ?? match.days_stale,
+      next_step: move.next_step || match.next_step || '',
+    };
+  };
+  return {
+    ...movement,
+    forward: (movement.forward || []).map(enrich),
+    backward: (movement.backward || []).map(enrich),
+    won: (movement.won || []).map(enrich),
+    lost: (movement.lost || []).map(enrich),
+    new: (movement.new || []).map(enrich),
+  };
+}
 
 function dirOf(from, to) {
   if (to === 'Business Won')  return 'won';
@@ -128,40 +169,58 @@ function RepBarChart({ moves, height = 160 }) {
 function DealMovement({ data }) {
   const weeks = data.weeks || data.filters?.weeks || [];
 
-  const initPrev  = data.movement?.prev_week    || (weeks.length >= 2 ? weeks[weeks.length - 2] : '');
+  const initPrev  = data.movement?.from_week || data.movement?.prev_week || (weeks.length >= 2 ? weeks[weeks.length - 2] : '');
   const initTo    = data.movement?.to_week || data.selected_week || (weeks.length >= 1 ? weeks[weeks.length - 1] : '');
 
   const [fromWeek,  setFromWeek]  = useState(initPrev);
   const [toWeek,    setToWeek]    = useState(initTo);
-  const [mvData,    setMvData]    = useState(data.movement || {});
+  const [mvData,    setMvData]    = useState(() => enrichMovement(data.movement, data.deals));
   const [mvLoading, setMvLoading] = useState(false);
   const [dirFilter, setDirFilter] = useState('');
   const [repFilter, setRepFilter] = useState('');
+  const movementRequest = useRef(0);
 
-  const { drill, activeDeal, openDrill, closeDrill, openDeal, closeDeal, drillStage } = useDrill();
+  const { drill, activeDeal, openDrill, closeDrill, openDeal, closeDeal } = useDrill();
 
   const fetchMovement = useCallback(async (fw, tw) => {
     if (!fw || !tw || fw === tw) return;
+    const requestId = ++movementRequest.current;
     setMvLoading(true);
     try {
       const params = new URLSearchParams({ from_week: fw, to_week: tw });
-      const res    = await fetch(`/api/pipeline/movement/?${params}`, { credentials: 'include' });
+      const res    = await fetch(`${API_URL}/api/pipeline/movement/?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Movement request failed (${res.status})`);
       const d      = await res.json();
-      setMvData(d.movement || {});
+      if (requestId !== movementRequest.current) return;
+
+      const responseFrom = d.from_week || d.movement?.from_week || fw;
+      const responseTo   = d.to_week || d.movement?.to_week || tw;
+      setFromWeek(responseFrom);
+      setToWeek(responseTo);
+      setMvData(enrichMovement(d.movement, data.deals));
     } catch (_) {
       /* keep existing */
     } finally {
-      setMvLoading(false);
+      if (requestId === movementRequest.current) setMvLoading(false);
     }
-  }, []);
+  }, [data.deals]);
 
   const handleFrom = (w) => { setFromWeek(w); fetchMovement(w, toWeek); };
   const handleTo   = (w) => { setToWeek(w);   fetchMovement(fromWeek, w); };
 
   /* ── Sync when parent data changes (e.g. filter change) ── */
   useEffect(() => {
-    setMvData(data.movement || {});
-  }, [data.movement]);
+    // A global dashboard week/filter change supplies a new movement period.
+    // Invalidate any older local request before synchronising the cards and
+    // selectors to that response.
+    movementRequest.current += 1;
+    const nextFrom = data.movement?.from_week || data.movement?.prev_week || '';
+    const nextTo   = data.movement?.to_week || data.selected_week || '';
+    if (nextFrom) setFromWeek(nextFrom);
+    if (nextTo) setToWeek(nextTo);
+    setMvData(enrichMovement(data.movement, data.deals));
+    setMvLoading(false);
+  }, [data.movement, data.selected_week, data.deals]);
 
   const {
     matrix   = {},
@@ -169,7 +228,6 @@ function DealMovement({ data }) {
     backward = [],
     won      = [],
     lost     = [],
-    new: newDeals = [],
   } = mvData;
 
   const allMoves = [

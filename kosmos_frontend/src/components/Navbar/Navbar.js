@@ -38,7 +38,6 @@ function Navbar({ active = 'arr', user, onLogout }) {
                 <img className="nb-brand-icon" src={oneKosmosIcon} alt="1Kosmos" />
                 <div className="nb-logo-text">
                     <span className="nb-name">1Kosmos</span>
-                    <span className="nb-sub">Revenue Intelligence</span>
                 </div>
             </a>
 

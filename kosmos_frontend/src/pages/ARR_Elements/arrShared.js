@@ -10,10 +10,11 @@ const PALETTE = [
 // ── formatters ───────────────────────────────────────────────────────────────
 const fmt = (v) => {
   const n = Number(v || 0);
+  const abs = Math.abs(n);
   return new Intl.NumberFormat('en-US', {
     style: 'currency', currency: 'USD',
-    notation: Math.abs(n) >= 1e6 ? 'compact' : 'standard',
-    maximumFractionDigits: Math.abs(n) >= 1e6 ? 1 : 0,
+    notation: abs >= 1e3 ? 'compact' : 'standard',
+    maximumFractionDigits: abs >= 1e6 ? 2 : abs >= 1e3 ? 1 : 0,
   }).format(n);
 };
 
@@ -133,11 +134,6 @@ function GaugeChart({ value = 0, label, color = '#7c3aed', maxVal = 150 }) {
   const arcPath  = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
   const gid      = `gg-${color.replace('#', '')}`;
 
-  // Grade retention by the real percentage, not by fill ratio against the chart max.
-  const grade = target >= 110 ? { text: 'Excellent', bg: '#dcfce7', fg: '#166534' }
-    : target >= 90            ? { text: 'Good',      bg: '#fef3c7', fg: '#92400e' }
-    :                            { text: 'At Risk',   bg: '#fee2e2', fg: '#991b1b' };
-
   // Tip circle: point on the arc where the fill ends
   const tipAngle = -Math.PI + (animVal / maxVal) * Math.PI;
   const tipX = cx + r * Math.cos(tipAngle);
@@ -187,21 +183,13 @@ function GaugeChart({ value = 0, label, color = '#7c3aed', maxVal = 150 }) {
           {animVal.toFixed(1)}%
         </text>
 
-        {/* Label */}
-        <text x={cx} y={cy - 2} textAnchor="middle" fontSize="9.5" fill="#94a3b8"
-          letterSpacing="0.6" fontFamily="Inter, system-ui, sans-serif">
-          {label}
-        </text>
-
         {/* End scale labels */}
         <text x={cx - r + 4} y={cy + 22} textAnchor="middle" fontSize="8.5" fill="#b0bcc8">0%</text>
         <text x={cx + r - 4} y={cy + 22} textAnchor="middle" fontSize="8.5" fill="#b0bcc8">{maxVal}%</text>
       </svg>
 
-      {/* Grade badge */}
-      <span className="gauge-grade" style={{ background: grade.bg, color: grade.fg }}>
-        {grade.text}
-      </span>
+      {/* Label below the meter so long text never overlaps the arc */}
+      {label && <div className="gauge-sub">{label}</div>}
     </div>
   );
 }

@@ -45,13 +45,7 @@
   letter-spacing: -.2px;
 }
 
-.nb-sub {
-  font-size: 10px;
-  color: #ef0000;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .7px;
-}
+
 
 /* ── Nav Links ─────────────────────────────────────────────────────────── */
 .nb-links {
@@ -302,6 +296,5 @@
 @media (max-width: 760px) {
   .navbar { padding: 0 14px; }
   .nb-links { display: none; }
-  .nb-sub { display: none; }
   .nb-logo { margin-right: 0; }
 }

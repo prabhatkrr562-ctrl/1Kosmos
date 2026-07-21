@@ -49,9 +49,12 @@ ALL_HEADER_COLUMNS = {
     "current_arr":       "current_arr",
     # ── preparing_own.xls human-readable aliases ────────────────────────────
     "key id":            "key_id",
+    "cur.":              "currency",
+    "cur":               "currency",
     "contract id":       "contract_id",
     "contract name":     "contract_name",
     "sales person":      "sales_person",
+    "size":              "company_size",
     "company size":      "company_size",
     "bu":                "business_unit",
     "bill to":           "bill_to",
@@ -63,7 +66,9 @@ ALL_HEADER_COLUMNS = {
     "rev. method":       "revenue_method",
     "rev method":        "revenue_method",
     "tcv (usd)":         "tcv_usd",
+    "tcv usd":           "tcv_usd",
     "arr usd":           "arr_usd",
+    "arr model":         "arr_usd",
     "booking status":    "booking_status",
     "order status booking": "booking_status",
     "order status":      "order_status",
@@ -76,6 +81,10 @@ ALL_HEADER_COLUMNS = {
     "lob":               "line_of_business",
     "type":              "line_of_business",
     "current arr":       "current_arr",
+    # ── Booking_Database_YYYY-MM export ─────────────────────────────────────
+    # Parse-time pseudo-field: resolved into the status columns during
+    # normalisation because BookingRecord has no deal_type field.
+    "deal type":         "deal_type",
     # ── Attribute fields (15) ───────────────────────────────────────────────
     "attribute1":        "attribute1",
     "attribute2":        "attribute2",
@@ -104,6 +113,12 @@ ALL_HEADER_COLUMNS = {
 NUMERIC_FIELDS = {"tcv_usd", "arr_usd", "booking", "current_arr"}
 DATE_FIELDS = {"term_start", "term_end", "creation_date", "last_update_date"}
 
+MONTH_ABBR = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "may": "05", "jun": "06", "jul": "07", "aug": "08",
+    "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
+
 
 class BookingWorkbookError(ValueError):
     pass
@@ -113,6 +128,12 @@ def _normalize_current_arr(records):
     month_totals = {}
     for record in records:
         record.setdefault("monthly_changes", {})
+        # The Booking_Database_YYYY-MM export ships a "Deal Type" column while
+        # leaving both Order Status columns blank; use it to backfill them.
+        deal_type = record.pop("deal_type", "")
+        if deal_type:
+            record["booking_status"] = record.get("booking_status") or deal_type
+            record["order_status"] = record.get("order_status") or deal_type
         for month, amount in (record.get("monthly_arr") or {}).items():
             month_totals[month] = month_totals.get(month, 0) + float(amount or 0)
     active_months = sorted(month for month, total in month_totals.items() if total)
@@ -135,6 +156,60 @@ def excel_date(value):
     except (TypeError, ValueError):
         return None
     return (datetime(1899, 12, 30) + timedelta(days=number)).date()
+
+
+def _month_from_header(value):
+    text = str(value or "").strip()
+    match = re.match(r"^(\d{4}-\d{2})(?:-\d{2})?(?:\s+00:00:00)?$", text)
+    if match:
+        return match.group(1)
+    parsed = excel_date(text)
+    return parsed.strftime("%Y-%m") if parsed else ""
+
+
+def _deal_type_month(value):
+    match = re.match(r"^dealtype\s+([a-z]{3})-(\d{2})$", str(value or "").strip(), re.I)
+    if not match:
+        return ""
+    month = MONTH_ABBR.get(match.group(1).lower())
+    return f"20{match.group(2)}-{month}" if month else ""
+
+
+def _booking_column_maps(header_items):
+    """Split headers into fields, ARR months, movement amounts and deal types."""
+    col_to_field = {}
+    assigned_fields = set()
+    month_occurrences = {}
+    arr_month_cols = {}
+    change_amount_cols = {}
+    deal_type_cols = {}
+
+    for column, raw_header in header_items:
+        header = str(raw_header or "").strip()
+        field = ALL_HEADER_COLUMNS.get(header.lower())
+        if field:
+            # Helper/reporting blocks in the source workbook repeat fields such
+            # as Sub Product Type. The main data-table occurrence must win.
+            if field not in assigned_fields:
+                col_to_field[column] = field
+                assigned_fields.add(field)
+            continue
+
+        month = _month_from_header(header)
+        if month:
+            occurrence = month_occurrences.get(month, 0)
+            month_occurrences[month] = occurrence + 1
+            if occurrence == 0:
+                arr_month_cols[column] = month
+            elif occurrence == 1:
+                change_amount_cols[column] = month
+            continue
+
+        deal_month = _deal_type_month(header)
+        if deal_month:
+            deal_type_cols[column] = deal_month
+
+    return col_to_field, arr_month_cols, change_amount_cols, deal_type_cols
 
 
 def _shared_strings(archive):
@@ -261,15 +336,9 @@ def _parse_xls_xml(payload):
             "Ensure row 1 contains field names such as KEY_ID, ENTITY, CONTRACT_ID, etc."
         )
 
-    col_to_field = {}
-    month_col_idxs = {}  # col index → "YYYY-MM"
-    for idx, text in enumerate(header_list):
-        t = text.strip()
-        field = ALL_HEADER_COLUMNS.get(t.lower())
-        if field:
-            col_to_field[idx] = field
-        elif _MONTH_YYYYMM.match(t):
-            month_col_idxs[idx] = t
+    col_to_field, arr_month_cols, change_amount_cols, deal_type_cols = (
+        _booking_column_maps(enumerate(header_list))
+    )
 
     key_idxs = {idx for idx, f in col_to_field.items() if f in ("key_id", "contract_id")}
 
@@ -297,7 +366,7 @@ def _parse_xls_xml(payload):
 
         # Collect monthly ARR from YYYY-MM columns
         monthly = {}
-        for idx, month_key in month_col_idxs.items():
+        for idx, month_key in arr_month_cols.items():
             raw = row[idx].strip() if idx < len(row) else ""
             try:
                 amount = float(raw.replace(",", "") or 0)
@@ -306,7 +375,27 @@ def _parse_xls_xml(payload):
             if amount:
                 monthly[month_key] = amount
 
+        change_amounts = {}
+        for idx, month_key in change_amount_cols.items():
+            raw = row[idx].strip() if idx < len(row) else ""
+            try:
+                amount = float(raw.replace(",", "") or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+            if amount:
+                change_amounts[month_key] = amount
+
+        monthly_changes = {}
+        for idx, month_key in deal_type_cols.items():
+            amount = change_amounts.get(month_key)
+            deal_type = row[idx].strip() if idx < len(row) else ""
+            if not amount or not deal_type:
+                continue
+            bucket = monthly_changes.setdefault(month_key, {})
+            bucket[deal_type] = bucket.get(deal_type, 0) + amount
+
         record["monthly_arr"] = monthly
+        record["monthly_changes"] = monthly_changes
 
         # current_arr: use explicit column value first, then latest monthly, then arr_usd
         if not record.get("current_arr"):
@@ -356,22 +445,9 @@ def parse_booking_workbook(uploaded_file):
             )
 
         # ── Build column mappings from header row ─────────────────────────────
-        col_to_field = {}   # column_letter → model field
-        month_columns = {}  # column_letter → "YYYY-MM"
-
-        for col_letter, header_text in header_cells.items():
-            t = header_text.strip()
-            field = ALL_HEADER_COLUMNS.get(t.lower())
-            if field:
-                col_to_field[col_letter] = field
-            else:
-                # Check Excel date serial first, then YYYY-MM string format
-                parsed = excel_date(t)
-                if parsed:
-                    month_columns[col_letter] = parsed.strftime("%Y-%m")
-                elif _MONTH_YYYYMM.match(t):
-                    month_columns[col_letter] = t
-                # Anything else is silently ignored
+        col_to_field, arr_month_cols, change_amount_cols, deal_type_cols = (
+            _booking_column_maps(header_cells.items())
+        )
 
         # Identify skip-check columns for empty-row detection
         key_cols = {c for c, f in col_to_field.items() if f in ("key_id", "contract_id")}
@@ -404,14 +480,34 @@ def parse_booking_workbook(uploaded_file):
 
             # Month ARR columns
             monthly = {}
-            for col_letter, month in month_columns.items():
+            for col_letter, month in arr_month_cols.items():
                 try:
                     amount = float(cells.get(col_letter, 0) or 0)
                 except (TypeError, ValueError):
                     amount = 0.0
-                monthly[month] = amount
+                if amount:
+                    monthly[month] = amount
+
+            change_amounts = {}
+            for col_letter, month in change_amount_cols.items():
+                try:
+                    amount = float(cells.get(col_letter, 0) or 0)
+                except (TypeError, ValueError):
+                    amount = 0.0
+                if amount:
+                    change_amounts[month] = amount
+
+            monthly_changes = {}
+            for col_letter, month in deal_type_cols.items():
+                amount = change_amounts.get(month)
+                deal_type = str(cells.get(col_letter, "") or "").strip()
+                if not amount or not deal_type:
+                    continue
+                bucket = monthly_changes.setdefault(month, {})
+                bucket[deal_type] = bucket.get(deal_type, 0) + amount
 
             record["monthly_arr"] = monthly
+            record["monthly_changes"] = monthly_changes
             if not record.get("current_arr"):
                 record["current_arr"] = (
                     monthly.get(max(monthly), 0) if monthly else record.get("arr_usd", 0)
@@ -453,35 +549,9 @@ def parse_booking_csv(uploaded_file):
         )
 
     # Build column-index → model field mapping
-    col_to_field = {}
-    month_occurrences = {}
-    arr_month_cols = {}
-    change_amount_cols = {}
-    deal_type_cols = {}
-    month_abbr = {
-        "jan": "01", "feb": "02", "mar": "03", "apr": "04",
-        "may": "05", "jun": "06", "jul": "07", "aug": "08",
-        "sep": "09", "oct": "10", "nov": "11", "dec": "12",
-    }
-    for idx, header_text in enumerate(header_row):
-        header = header_text.strip()
-        field = ALL_HEADER_COLUMNS.get(header.lower())
-        if field:
-            col_to_field[idx] = field
-            continue
-        if _MONTH_YYYYMM.match(header):
-            occurrence = month_occurrences.get(header, 0)
-            month_occurrences[header] = occurrence + 1
-            if occurrence == 0:
-                arr_month_cols[idx] = header
-            elif occurrence == 1:
-                change_amount_cols[idx] = header
-            continue
-        match = re.match(r"^dealtype\s+([a-z]{3})-(\d{2})$", header, re.I)
-        if match:
-            month = month_abbr.get(match.group(1).lower())
-            if month:
-                deal_type_cols[idx] = f"20{match.group(2)}-{month}"
+    col_to_field, arr_month_cols, change_amount_cols, deal_type_cols = (
+        _booking_column_maps(enumerate(header_row))
+    )
 
     key_idxs = {idx for idx, f in col_to_field.items() if f in ("key_id", "contract_id")}
 

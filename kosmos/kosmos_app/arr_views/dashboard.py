@@ -1,11 +1,11 @@
 from collections import defaultdict
+import re
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from ..views_shared import _money, _latest_import
 from .shared import (
-    _compute_ltm,
     _build_waterfall,
     _build_customer_360,
     _record_parts,
@@ -21,12 +21,80 @@ def _customer_name(record):
     return record.end_user or record.bill_to or "Unspecified"
 
 
+def _previous_month(month):
+    year, number = map(int, month.split("-"))
+    if number == 1:
+        return f"{year - 1:04d}-12"
+    return f"{year:04d}-{number - 1:02d}"
+
+
+def _period_range(period, latest_month, custom_from="", custom_to=""):
+    if not latest_month:
+        return "", ""
+    year, month = map(int, latest_month.split("-"))
+    if period == "custom":
+        valid = re.compile(r"^\d{4}-\d{2}$")
+        start = custom_from if valid.match(custom_from or "") else latest_month
+        end = custom_to if valid.match(custom_to or "") else latest_month
+        return start, min(end, latest_month)
+    if period == "qtd":
+        quarter_start = ((month - 1) // 3) * 3 + 1
+        return f"{year:04d}-{quarter_start:02d}", latest_month
+    if period == "ltm":
+        start_month = month + 1
+        start_year = year - 1
+        if start_month > 12:
+            start_month -= 12
+            start_year += 1
+        return f"{start_year:04d}-{start_month:02d}", latest_month
+    return f"{year:04d}-01", latest_month
+
+
+def _compute_period_metrics(records, months, start_month, latest_month):
+    opening_month = _previous_month(start_month) if start_month else ""
+    opening = sum(_arr_at(record, opening_month) for record in records)
+    closing = sum(_arr_at(record, latest_month) for record in records)
+    # The reference dashboard nets each month/type across filtered deals before
+    # calculating headline movement KPIs. This preserves offsetting corrections.
+    movements = defaultdict(float)
+    for record in records:
+        for month in months:
+            for label, raw_amount in ((record.monthly_changes or {}).get(month) or {}).items():
+                amount = float(raw_amount or 0)
+                key = str(label or "").strip().lower()
+                movements[(month, key)] += amount
+
+    new_arr = upsell = renewal = churn = downsell = 0.0
+    for month in months:
+        new_arr += max(0.0, movements[(month, "new")])
+        upsell += max(0.0, movements[(month, "upsell")])
+        renewal += movements[(month, "renewal")]
+        churn_amount = movements[(month, "churn")]
+        if churn_amount < 0:
+            churn += abs(churn_amount)
+        downsell += abs(movements[(month, "downsell")])
+    grr = ((opening - churn - downsell) / opening * 100) if opening else 0.0
+    nrr = ((opening - churn - downsell + upsell) / opening * 100) if opening else 0.0
+    return {
+        "opening_arr": round(opening, 2),
+        "new_arr": round(new_arr, 2),
+        "upsell": round(upsell, 2),
+        "renewal": round(renewal, 2),
+        "churn": round(churn, 2),
+        "downsell": round(downsell, 2),
+        "ltm_change": round(closing - opening, 2),
+        "growth_pct": round(((closing - opening) / opening * 100) if opening else 0.0, 1),
+        "grr": round(grr, 1),
+        "nrr": round(nrr, 1),
+    }
+
+
 def _build_rep_leaderboard(records, latest_month, months):
     reps = defaultdict(lambda: {
         "rep": "", "arr": 0.0, "new_arr": 0.0, "upsell": 0.0,
         "churn": 0.0, "downsell": 0.0, "customers": set(),
     })
-    period = months[-12:]
+    period = months
     has_explicit_changes = any(record.monthly_changes for record in records)
     for record in records:
         rep = record.sales_person or "Unassigned"
@@ -94,7 +162,7 @@ def _build_health_heatmap(customer_360, months):
 
 
 def _build_new_logos(records, months):
-    period = set(months[-12:])
+    period = set(months)
     has_explicit_changes = any(record.monthly_changes for record in records)
     first_seen = {}
     amounts = defaultdict(float)
@@ -148,13 +216,38 @@ def dashboard(request):
         "company_size": "company_size",
         "line_of_business": "line_of_business",
     }
-    filters = {}
-    for query_name, field_name in filter_map.items():
-        filters[query_name] = sorted(
-            value
-            for value in base_records.values_list(field_name, flat=True).distinct()
-            if value
-        )
+    global_month_totals = defaultdict(float)
+    base_record_list = list(base_records)
+    for record in base_record_list:
+        for month, amount in (record.monthly_arr or {}).items():
+            global_month_totals[month] += float(amount or 0)
+    available_months = sorted(month for month, amount in global_month_totals.items() if amount)
+    global_latest_month = available_months[-1] if available_months else ""
+    active_records = [
+        record for record in base_record_list
+        if _arr_at(record, global_latest_month) > 0
+    ]
+    filters = {
+        query_name: sorted({
+            getattr(record, field_name)
+            for record in active_records
+            if getattr(record, field_name)
+        })
+        for query_name, field_name in filter_map.items()
+    }
+    period = request.GET.get("period", "ytd").strip().lower()
+    if period not in {"ytd", "qtd", "ltm", "custom"}:
+        period = "ytd"
+    period_from, period_to = _period_range(
+        period,
+        global_latest_month,
+        request.GET.get("from", "").strip(),
+        request.GET.get("to", "").strip(),
+    )
+    period_months = [
+        month for month in available_months
+        if (not period_from or month >= period_from) and (not period_to or month <= period_to)
+    ]
 
     records = base_records
     for query_name, field_name in filter_map.items():
@@ -167,13 +260,20 @@ def dashboard(request):
     for item in records:
         for month, amount in item.monthly_arr.items():
             trend_totals[month] += float(amount or 0)
-    sorted_months = sorted(month for month, amount in trend_totals.items() if amount)
-    latest_month = sorted_months[-1] if sorted_months else ""
+    sorted_months = period_months
+    latest_month = period_to or (sorted_months[-1] if sorted_months else "")
 
     total_arr = sum(_arr_at(item, latest_month) for item in records)
     total_booking = sum(item.booking for item in records)
-    recurring_records = [item for item in records if item.revenue_type.lower() == "recurring"]
-    customers = {item.end_user or item.bill_to for item in records if item.end_user or item.bill_to}
+    active_records = [item for item in records if _arr_at(item, latest_month) > 0]
+    recurring_records = [
+        item for item in active_records if item.revenue_type.lower() == "recurring"
+    ]
+    customers = {
+        item.end_user or item.bill_to
+        for item in active_records
+        if item.end_user or item.bill_to
+    }
 
     def breakdown(field, value_field="current_arr", limit=8):
         totals = defaultdict(float)
@@ -209,7 +309,7 @@ def dashboard(request):
         )[:10]
     ]
 
-    ltm = _compute_ltm(records)
+    ltm = _compute_period_metrics(records, sorted_months, period_from, latest_month)
     waterfall = _build_waterfall(records, sorted_months)
     customer_360 = _build_customer_360(records, sorted_months)
     at_risk = [c for c in customer_360 if c['ltm_change'] < 0]
@@ -228,6 +328,13 @@ def dashboard(request):
                 "row_count": data_import.row_count,
             },
             "filters": filters,
+            "period": {
+                "value": period,
+                "from": period_from,
+                "to": period_to,
+                "latest_month": global_latest_month,
+                "months": available_months,
+            },
             "kpis": {
                 "total_arr": _money(total_arr),
                 "total_booking": _money(total_booking),
@@ -239,6 +346,7 @@ def dashboard(request):
                 "ltm_change": ltm['ltm_change'],
                 "ltm_new_arr": ltm['new_arr'],
                 "ltm_upsell": ltm['upsell'],
+                "ltm_renewal": ltm['renewal'],
                 "ltm_churn": ltm['churn'],
                 "ltm_downsell": ltm['downsell'],
                 "ltm_opening_arr": ltm['opening_arr'],
@@ -247,8 +355,8 @@ def dashboard(request):
                 "growth_pct": ltm['growth_pct'],
             },
             "trend": [
-                {"month": month, "value": _money(value)}
-                for month, value in sorted(trend_totals.items())
+                {"month": month, "value": _money(trend_totals.get(month, 0))}
+                for month in sorted_months
             ],
             "waterfall": waterfall,
             "breakdowns": {

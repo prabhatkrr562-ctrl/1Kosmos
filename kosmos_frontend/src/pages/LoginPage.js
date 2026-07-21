@@ -40,13 +40,12 @@ export default function LoginPage({
         <img src={oneKosmosIcon} alt="" className="auth-brand-icon" />
         <div className="auth-brand-text">
           <span>1Kosmos</span>
-          <strong>Revenue Intelligence</strong>
         </div>
       </section>
 
       <section className="auth-panel">
         <h1>Welcome back</h1>
-        <p className="auth-subtitle">Sign in to access your intelligence dashboard.</p>
+        <p className="auth-subtitle">Sign in to access your dashboard.</p>
 
         {error && <div className="auth-error">{error}</div>}
 
@@ -57,7 +56,7 @@ export default function LoginPage({
               type="text"
               value={localLogin.username}
               onChange={(e) => onLocalLoginChange({ username: e.target.value })}
-              placeholder="Django username"
+              placeholder="Username"
               autoComplete="username"
             />
           </label>
@@ -67,7 +66,7 @@ export default function LoginPage({
               type="password"
               value={localLogin.password}
               onChange={(e) => onLocalLoginChange({ password: e.target.value })}
-              placeholder="Django password"
+              placeholder="Password"
               autoComplete="current-password"
             />
           </label>
@@ -77,7 +76,7 @@ export default function LoginPage({
                 <span /><span /><span />
               </span>
             )}
-            {localLogin.loading ? 'Signing in...' : 'Sign in as Django admin'}
+            {localLogin.loading ? 'Signing in...' : 'Sign-In As Administrator'}
           </button>
         </form>
 

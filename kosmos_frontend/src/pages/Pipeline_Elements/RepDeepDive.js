@@ -1,13 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { fmt, DonutChart, LineChart, StageBadge, FcBadge } from './plShared';
 import { DrillModal, DealModal, useDrill } from './DrillModal';
 
 /* ── Stage metadata ── */
 const ACTIVE_STAGES = [
-  '5% - Identify', '20% - Qualify', '40% - Validate',
-  '60% - Propose', '80% - Commit', '90% - Contract',
+  '5% - Prospecting', '20%-Discovery', '40%-Scoping',
+  '60%-Propose', '80%-Validate', '90%-Negotiate & Close',
 ];
-const LATE_STAGES = ['80% - Commit', '90% - Contract'];
+const LATE_STAGES = ['80%-Validate', '90%-Negotiate & Close'];
 
 /* ── Inline badge helpers (mirrors DrillModal internals) ── */
 function AgeBadge({ days }) {
@@ -81,6 +81,24 @@ function RepStackChart({ reps, onBarClick }) {
   );
 }
 
+function RepWinLossChart({ reps, onBarClick }) {
+  const max = Math.max(...reps.map(r => Math.max(r.won_deals || 0, r.lost_deals || 0)), 1);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 200, padding: '8px 8px 28px', overflowX: 'auto' }}>
+      {reps.map((rep, i) => (
+        <div key={i} style={{ minWidth: 46, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 150 }}>
+            <div title={`${rep.owner} won`} onClick={() => onBarClick?.(rep.owner)} style={{ width: 14, height: `${Math.max(2, (rep.won_deals || 0) / max * 140)}px`, background: 'var(--green)', borderRadius: '3px 3px 0 0', cursor: 'pointer' }} />
+            <div title={`${rep.owner} lost`} onClick={() => onBarClick?.(rep.owner)} style={{ width: 14, height: `${Math.max(2, (rep.lost_deals || 0) / max * 140)}px`, background: 'var(--red)', borderRadius: '3px 3px 0 0', cursor: 'pointer' }} />
+          </div>
+          <span style={{ fontSize: 8, color: 'var(--sub)', whiteSpace: 'nowrap' }}>{rep.owner.split(' ')[0]}</span>
+        </div>
+      ))}
+      <div style={{ position: 'absolute', fontSize: 9, color: 'var(--sub)', marginTop: 178 }}>■ Won &nbsp; <span style={{ color: 'var(--red)' }}>■ Lost</span></div>
+    </div>
+  );
+}
+
 function movDir(m) {
   if (m.to_stage === 'Business Won')  return 'won';
   if (m.to_stage === 'Business Lost') return 'lost';
@@ -90,10 +108,14 @@ function movDir(m) {
 }
 
 /* ── Main component ── */
-function RepDeepDive({ data }) {
-  const { rep_breakdown, deals = [], movement = {}, weekly_trend = [] } = data;
-  const [selectedRep, setSelectedRep] = useState(null);
+function RepDeepDive({ data, initialRep = null }) {
+  const { rep_breakdown, deals = [], movement = {}, weekly_trend = [], rep_weekly_trend = {} } = data;
+  const [selectedRep, setSelectedRep] = useState(initialRep);
   const { drill, activeDeal, openDrill, closeDrill, openDeal, closeDeal } = useDrill();
+
+  useEffect(() => {
+    if (initialRep && rep_breakdown.some(rep => rep.owner === initialRep)) setSelectedRep(initialRep);
+  }, [initialRep, rep_breakdown]);
 
   /* ── Per-rep slices ── */
   const repData = useMemo(
@@ -115,26 +137,27 @@ function RepDeepDive({ data }) {
   /* ── Stage donut items ── */
   const stageDonutItems = useMemo(() => {
     const map = {};
-    for (const d of activeRepDeals) {
+    for (const d of repDeals) {
       map[d.stage] = (map[d.stage] || 0) + (d.amount || 0);
     }
-    return ACTIVE_STAGES.filter(s => map[s]).map(s => ({
+    return [...ACTIVE_STAGES, 'Business Won'].filter(s => map[s]).map(s => ({
       label: s,
       value: map[s],
       onClick: () => {
-        const filtered = activeRepDeals.filter(d => d.stage === s);
+        const filtered = repDeals.filter(d => d.stage === s);
         openDrill(`${selectedRep} — ${s}`, `${filtered.length} deals`, filtered);
       },
     }));
-  }, [activeRepDeals, selectedRep]);
+  }, [repDeals, selectedRep, openDrill]);
 
   /* ── Forecast donut items ── */
   const fcDonutItems = useMemo(() => {
-    const map = { 'Commit': 0, 'Upside': 0, 'Not Forecasted': 0 };
-    for (const d of activeRepDeals) {
+    const map = { 'Commit': 0, 'Upside': 0, 'Not Forecasted': 0, 'Closed Won': 0 };
+    for (const d of repDeals) {
       const fc = (d.forecast_category || '').trim();
       if (fc === 'Commit') map['Commit'] += d.amount || 0;
       else if (fc === 'Upside') map['Upside'] += d.amount || 0;
+      else if (d.stage === 'Business Won' || fc.toLowerCase() === 'closed won') map['Closed Won'] += d.amount || 0;
       else map['Not Forecasted'] += d.amount || 0;
     }
     return Object.entries(map).filter(([, v]) => v > 0).map(([label, value]) => ({
@@ -142,32 +165,41 @@ function RepDeepDive({ data }) {
       value,
       onClick: () => {
         const filtered = label === 'Not Forecasted'
-          ? activeRepDeals.filter(d => !['Commit', 'Upside'].includes((d.forecast_category || '').trim()))
-          : activeRepDeals.filter(d => (d.forecast_category || '').trim() === label);
+          ? repDeals.filter(d => !['Commit', 'Upside'].includes((d.forecast_category || '').trim()) && d.stage !== 'Business Won')
+          : label === 'Closed Won'
+            ? repDeals.filter(d => d.stage === 'Business Won' || (d.forecast_category || '').trim().toLowerCase() === 'closed won')
+            : repDeals.filter(d => (d.forecast_category || '').trim() === label);
         openDrill(`${selectedRep} — ${label}`, `${filtered.length} deals`, filtered);
       },
     }));
-  }, [activeRepDeals, selectedRep]);
+  }, [repDeals, selectedRep, openDrill]);
 
   /* ── Pipeline trend approx (rep's share of total weekly pipeline) ── */
   const trendData = useMemo(() => {
     if (!repData || !weekly_trend.length) return [];
-    const totalPipeline = rep_breakdown.reduce((s, r) => s + r.pipeline, 0) || 1;
-    const share = repData.pipeline / totalPipeline;
-    return weekly_trend.map(w => ({ label: w.week, value: Math.round((w.active || 0) * share) }));
-  }, [repData, weekly_trend, rep_breakdown]);
+    return (rep_weekly_trend[selectedRep] || []).map(w => ({
+      label: w.week,
+      value: Number(w.active || 0),
+    }));
+  }, [repData, weekly_trend, rep_weekly_trend, selectedRep]);
 
   /* ── Stage movements for this rep ── */
   const repMoves = useMemo(() => {
     if (!selectedRep) return [];
+    const byId = new Map(deals.map(d => [String(d.record_id), d]));
+    const byName = new Map(deals.map(d => [d.deal_name, d]));
     return [
       ...(movement.forward  || []),
       ...(movement.backward || []),
       ...(movement.won      || []),
       ...(movement.lost     || []),
     ].filter(m => m.owner === selectedRep)
+     .map(m => {
+       const match = byId.get(String(m.record_id)) || byName.get(m.deal_name);
+       return match ? { ...match, ...m, deal_name: match.deal_name, company: match.company, stage: m.to_stage || match.stage } : m;
+     })
      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
-  }, [movement, selectedRep]);
+  }, [movement, deals, selectedRep]);
 
   /* ── Scorecard stats ── */
   const lateStageCount = activeRepDeals.filter(d => LATE_STAGES.includes(d.stage)).length;
@@ -196,21 +228,17 @@ function RepDeepDive({ data }) {
     const filtered = deals.filter(d => d.stage === stage);
     openDrill(stage, `${filtered.length} deals`, filtered);
   }
-  function handleStackBar(owner, category) {
-    setSelectedRep(owner);
-    const repAllDeals = deals.filter(d => d.owner === owner);
-    let filtered, title;
-    if (category === 'commit') {
-      filtered = repAllDeals.filter(d => (d.forecast_category || '').trim() === 'Commit' && ACTIVE_STAGES.includes(d.stage));
-      title = `${owner} — Commit`;
-    } else if (category === 'upside') {
-      filtered = repAllDeals.filter(d => (d.forecast_category || '').trim() === 'Upside' && ACTIVE_STAGES.includes(d.stage));
-      title = `${owner} — Upside`;
-    } else {
-      filtered = repAllDeals.filter(d => d.stage === 'Business Won');
-      title = `${owner} — Won Deals`;
-    }
-    openDrill(title, `${filtered.length} deals`, filtered);
+  function openRepOverview() {
+    const cards = rep_breakdown.map(rep => (
+      <div key={rep.owner} className={`rc ${(rep.region || '').toLowerCase().includes('apac') ? 'apac' : 'na'}`} onClick={() => { closeDrill(); setSelectedRep(rep.owner); }}>
+        <div className="rc-name">{rep.owner}</div>
+        <div className="rc-team">{rep.team || '—'} · {rep.region || '—'}</div>
+        <div className="rc-pipe">{fmt(rep.pipeline)}</div>
+        <div className="rc-row"><div className="rc-stat"><div className="rc-sv">{rep.deals}</div><div className="rc-sl">Deals</div></div><div className="rc-stat"><div className="rc-sv" style={{ color: 'var(--green)' }}>{rep.won_deals}</div><div className="rc-sl">Won</div></div><div className="rc-stat"><div className="rc-sv" style={{ color: 'var(--red)' }}>{rep.lost_deals || 0}</div><div className="rc-sl">Lost</div></div></div>
+        <div className="pl-click-hint" style={{ marginTop: 8 }}>🔍 Click → rep dashboard</div>
+      </div>
+    ));
+    openDrill('Sales Rep Overview — Click a rep to drill', null, null, <div className="rep-grid">{cards}</div>);
   }
 
   /* ── Render ── */
@@ -230,18 +258,18 @@ function RepDeepDive({ data }) {
         </div>
       </div>
 
-      {/* ── Stacked chart card (g1) ── */}
-      <div className="pl-card pl-card-clickable g1" onClick={() => { /* opens when bar clicked */ }}>
-        <div className="pl-card-header">
-          <div className="pl-card-title">
-            Rep Commit vs Upside vs Won — Stacked{' '}
-            <span style={{ fontSize: 9, color: 'var(--cyan)' }}>↗ Click bars → rep detail</span>
-          </div>
+      {/* ── Reference HTML cross-rep charts ── */}
+      <div className="g2">
+        <div className="pl-card pl-card-clickable" onClick={openRepOverview}>
+          <div className="pl-card-header"><div className="pl-card-title">Rep Commit vs Upside vs Won — Stacked <span style={{ fontSize: 9, color: 'var(--cyan)' }}>↗ Click → rep detail</span></div></div>
+          <div style={{ fontSize: 10, color: 'var(--sub)', marginBottom: 8 }}>Pipeline quality breakdown per rep</div>
+          <RepStackChart reps={rep_breakdown} onBarClick={openRepOverview} />
         </div>
-        <div style={{ fontSize: 10, color: 'var(--sub)', marginBottom: 8 }}>
-          Pipeline quality breakdown per rep
+        <div className="pl-card pl-card-clickable" onClick={openRepOverview}>
+          <div className="pl-card-header"><div className="pl-card-title">Rep Won vs Lost — Click bars → rep detail</div></div>
+          <div style={{ fontSize: 10, color: 'var(--sub)', marginBottom: 8 }}>Deal count by outcome, per rep</div>
+          <RepWinLossChart reps={rep_breakdown} onBarClick={openRepOverview} />
         </div>
-        <RepStackChart reps={rep_breakdown} onBarClick={handleStackBar} />
       </div>
 
       {/* ── Empty state ── */}
@@ -315,8 +343,7 @@ function RepDeepDive({ data }) {
           {/* g3: Pipeline Trend | Stage Distribution | Forecast Split */}
           <div className="g3">
             {/* Pipeline Trend */}
-            <div className="pl-card pl-card-clickable"
-              onClick={() => openRepDrill('Active Pipeline', d => ACTIVE_STAGES.includes(d.stage))}>
+            <div className="pl-card">
               <div className="pl-card-header">
                 <div className="pl-card-title">
                   Pipeline Trend{' '}
@@ -331,8 +358,7 @@ function RepDeepDive({ data }) {
             </div>
 
             {/* Stage Distribution */}
-            <div className="pl-card pl-card-clickable"
-              onClick={() => openRepDrill('Active Pipeline', d => ACTIVE_STAGES.includes(d.stage))}>
+            <div className="pl-card">
               <div className="pl-card-header">
                 <div className="pl-card-title">
                   Stage Distribution{' '}
@@ -344,8 +370,7 @@ function RepDeepDive({ data }) {
             </div>
 
             {/* Forecast Split */}
-            <div className="pl-card pl-card-clickable"
-              onClick={() => openRepDrill('Active Pipeline', d => ACTIVE_STAGES.includes(d.stage))}>
+            <div className="pl-card">
               <div className="pl-card-header">
                 <div className="pl-card-title">
                   Forecast Split{' '}

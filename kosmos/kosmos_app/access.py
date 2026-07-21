@@ -18,6 +18,12 @@ ACCESS_ROLES = [
         "description": "Can open GitHub repository controls from Settings.",
     },
     {
+        "key": "data_manager",
+        "label": "Data Manager",
+        "group": "Data Manager",
+        "description": "Can import, export, and edit dashboard source data.",
+    },
+    {
         "key": "pipeline",
         "label": "Pipeline Dashboard",
         "group": "Pipeline Dashboard",

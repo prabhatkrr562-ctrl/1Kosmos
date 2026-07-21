@@ -6,38 +6,51 @@ import { API_URL } from '../../config/api';
 const BM_PAGE_SIZE = 10;
 
 const SAMPLE_FIELDS = [
-  { field: 'Key ID',           sample: 'K001',            type: 'Text'   },
+  { field: 'Key id',           sample: 'K001',            type: 'Text'   },
   { field: 'Entity',           sample: '1KOSMOS',         type: 'Text'   },
-  { field: 'Currency',         sample: 'USD',             type: 'Text'   },
-  { field: 'Contract ID',      sample: 'C-001',           type: 'Text'   },
+  { field: 'Cur.',             sample: 'USD',             type: 'Text'   },
+  { field: 'Contract_ID',      sample: 'C-001',           type: 'Text'   },
   { field: 'Contract Name',    sample: 'Sample Contract', type: 'Text'   },
-  { field: 'Sales Person',     sample: 'John Doe',        type: 'Text'   },
-  { field: 'Mode',             sample: 'New',             type: 'Text'   },
-  { field: 'Company Size',     sample: 'Enterprise',      type: 'Text'   },
+  { field: 'Sales person',     sample: 'John Doe',        type: 'Text'   },
+  { field: 'Mode',             sample: 'Customer',        type: 'Text'   },
+  { field: 'Size',             sample: 'Enterprise',      type: 'Text'   },
   { field: 'Industry',         sample: 'Technology',      type: 'Text'   },
   { field: 'BU',               sample: 'Federal',         type: 'Text'   },
   { field: 'Bill To',          sample: 'Sample Corp',     type: 'Text'   },
   { field: 'End User',         sample: 'Sample Corp',     type: 'Text'   },
   { field: 'Product Type',     sample: 'BlockID',         type: 'Text'   },
-  { field: 'Sub-Product',      sample: 'Enterprise',      type: 'Text'   },
-  { field: 'Rev. Method',      sample: 'ARR',             type: 'Text'   },
-  { field: 'TCV (USD)',        sample: '100000',          type: 'Number' },
-  { field: 'ARR USD',          sample: '50000',           type: 'Number' },
+  { field: 'Sub Product Type', sample: 'Workforce',       type: 'Text'   },
+  { field: 'Rev Method',       sample: 'ARR',             type: 'Text'   },
+  { field: 'TCV LCY',          sample: '100000',          type: 'Number' },
+  { field: 'TCV USD',          sample: '100000',          type: 'Number' },
+  { field: 'ARR LCY',          sample: '50000',           type: 'Number' },
+  { field: 'ARR Model',        sample: '50000',           type: 'Number' },
+  { field: 'Ex.Rate',          sample: '1',               type: 'Number' },
+  { field: 'Booking in renewal', sample: '0',             type: 'Number' },
   { field: 'Booking',          sample: '50000',           type: 'Number' },
-  { field: 'Booking Status',   sample: 'Active',          type: 'Text'   },
+  { field: 'Order Status Booking', sample: 'Active',      type: 'Text'   },
   { field: 'Order Status',     sample: 'Active',          type: 'Text'   },
-  { field: 'Rev. Type',        sample: 'Recurring',       type: 'Text'   },
+  { field: 'Rec/Non Rec',      sample: 'Recurring',       type: 'Text'   },
+  { field: 'Deal Type',        sample: 'New',             type: 'Text'   },
   { field: 'Term Start',       sample: '2024-01-01',      type: 'Date'   },
   { field: 'Term End',         sample: '2024-12-31',      type: 'Date'   },
-  { field: 'Line of Business', sample: 'Identity',        type: 'Text'   },
-  { field: 'Current ARR',      sample: '50000',           type: 'Number' },
+  { field: 'Chohot Month',     sample: '2024-01',         type: 'Text'   },
+  { field: 'Rolloff Month',    sample: '2024-12',         type: 'Text'   },
+  { field: 'Type',             sample: 'Commercial',      type: 'Text'   },
+  { field: 'Record id',        sample: 'R001',            type: 'Text'   },
 ];
 
-// Sample monthly ARR columns appended after column 25 in the downloaded template
+// Mirrors the source workbook: ARR values, repeated movement amounts, then deal types.
 const SAMPLE_MONTHLY = [
-  { field: '2024-01', sample: '50000' },
-  { field: '2024-02', sample: '50000' },
-  { field: '2024-03', sample: '52000' },
+  { field: '2026-04-01', sample: '50000', type: 'Number' },
+  { field: '2026-05-01', sample: '50000', type: 'Number' },
+  { field: '2026-06-01', sample: '52000', type: 'Number' },
+  { field: '2026-04-01', sample: '50000', type: 'Number' },
+  { field: '2026-05-01', sample: '0',     type: 'Number' },
+  { field: '2026-06-01', sample: '2000',  type: 'Number' },
+  { field: 'DealType Apr-26', sample: 'New',    type: 'Text' },
+  { field: 'DealType May-26', sample: '',       type: 'Text' },
+  { field: 'DealType Jun-26', sample: 'Upsell', type: 'Text' },
 ];
 
 const BM_COLS = [
@@ -158,7 +171,7 @@ function BookingImportModal({ onClose, onSuccess }) {
       return `<Cell ss:Index="${i + 1}" ss:StyleID="${style}"><Data ss:Type="String">${h.field}</Data></Cell>`;
     }).join('');
     const dataCells = allFields.map((h, i) => {
-      const isNum = i >= SAMPLE_FIELDS.length || SAMPLE_FIELDS[i]?.type === 'Number';
+      const isNum = h.type === 'Number';
       const style = isNum ? 'datn' : 'dat';
       return `<Cell ss:Index="${i + 1}" ss:StyleID="${style}"><Data ss:Type="${isNum ? 'Number' : 'String'}">${h.sample}</Data></Cell>`;
     }).join('');
@@ -241,10 +254,10 @@ function BookingImportModal({ onClose, onSuccess }) {
             <div className="bim-step-body">
               <div className="bim-step-title">File Preparation Instructions</div>
               <ul className="bim-instructions">
-                <li>Use <strong>Excel (.xlsx / .xls)</strong> or <strong>CSV (.csv)</strong> format. Each row represents one contract record — do not merge cells or add summary rows.</li>
-                <li><strong>Row 1 must contain exact column headers</strong> in the correct order: 25 fixed columns from <em>Key ID</em> through <em>Current ARR</em>. Download the sample template below to get the pre-built layout.</li>
-                <li><strong>Monthly ARR columns</strong> start from column 26 onwards. Use <code>YYYY-MM</code> as the column header (e.g. <code>2024-01</code>, <code>2024-02</code>) and enter the ARR value for that month in each cell. Add as many months as needed.</li>
-                <li><strong>Numeric fields</strong> (TCV USD, ARR USD, Booking, Current ARR, and all monthly values) must be plain numbers — no currency symbols, commas, or percentage signs.</li>
+                <li>Use <strong>Excel (.xlsx / .xls)</strong> or <strong>CSV (.csv)</strong> format. The importer automatically locates the booking-table header, so the standard workbook summary rows above it are supported.</li>
+                <li>The standard format contains fixed columns from <em>Key id</em> through <em>Record id</em>. Header aliases such as <em>Cur.</em>, <em>Contract_ID</em>, <em>Size</em>, <em>ARR Model</em>, <em>Rec/Non Rec</em>, and <em>Deal Type</em> are mapped automatically — the monthly <em>Booking_Database_YYYY-MM</em> export uploads as-is, and its <em>Deal Type</em> column fills the Booking / Order Status fields when those are blank.</li>
+                <li><strong>Monthly data uses three blocks:</strong> monthly ARR date columns, the same date columns repeated for movement amounts, then matching <code>DealType Mon-YY</code> columns for New, Upsell, Renewal, Downsell, or Churn.</li>
+                <li><strong>Numeric fields</strong> (TCV USD, ARR Model, Booking, monthly ARR, and movement amounts) must be plain numbers without currency symbols or percentage signs.</li>
                 <li><strong>Date fields</strong> (Term Start, Term End) should use <code>YYYY-MM-DD</code> format or a standard Excel date cell. Any extra or unrecognised columns in your file are automatically ignored during import.</li>
               </ul>
             </div>
@@ -291,14 +304,14 @@ function BookingImportModal({ onClose, onSuccess }) {
   );
 }
 
-function BookingMasterTab({ data, onSuccess }) {
+function BookingMasterTab({ data, onSuccess, canManageData = false }) {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState('key_id');
   const [sortDir, setSortDir] = useState(1);
   const [page, setPage] = useState(1);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  const records = data.records || [];
+  const records = useMemo(() => data.records || [], [data.records]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -341,6 +354,7 @@ function BookingMasterTab({ data, onSuccess }) {
   };
 
   const exportCSV = () => {
+    if (!canManageData) return;
     const months = bmAllMonths(filtered);
     const xesc   = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const header = [...BM_EXPORT_BASE.map(c => c.label), ...months];
@@ -353,6 +367,7 @@ function BookingMasterTab({ data, onSuccess }) {
   };
 
   const exportExcel = () => {
+    if (!canManageData) return;
     const months = bmAllMonths(filtered);
     const xe = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const hdrRow = '<Row>' + [
@@ -403,6 +418,8 @@ function BookingMasterTab({ data, onSuccess }) {
     if (col.key === 'contract_id' || col.key === 'key_id') return <span className="bm-td-code">{r[col.key] || '—'}</span>;
     return r[col.key] || '—';
   };
+
+  if (!canManageData) return null;
 
   return (
     <>

@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+from datetime import date
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -7,6 +8,22 @@ from django.views.decorators.http import require_GET
 from ..models import ARDataImport
 from ..views_shared import _money
 from .shared import _bucket_label, _group_amount
+
+
+def _parse_date(value):
+    try:
+        return date.fromisoformat((value or "").strip())
+    except ValueError:
+        return None
+
+
+def _stretch_range(bounds, value):
+    if not value:
+        return
+    if bounds[0] is None or value < bounds[0]:
+        bounds[0] = value
+    if bounds[1] is None or value > bounds[1]:
+        bounds[1] = value
 
 
 @require_GET
@@ -66,6 +83,52 @@ def ar_dashboard(request):
     payments = list(payments)
     renewals = list(renewals)
     as_of = data_import.as_of_date or data_import.imported_at.date()
+
+    # Collections date filter: invoice rows carry invoice/due dates, payment
+    # rows carry the payment date; an invoice passes when its selected date
+    # falls inside the requested range.
+    date_type = request.GET.get("date_type", "inv").strip()
+    if date_type not in ("inv", "pay", "due"):
+        date_type = "inv"
+    date_from = _parse_date(request.GET.get("date_from"))
+    date_to = _parse_date(request.GET.get("date_to"))
+
+    date_ranges = {"inv": [None, None], "pay": [None, None], "due": [None, None]}
+    for item in payments_base:
+        if float(item.amount or 0) > 0:
+            _stretch_range(date_ranges["inv"], item.event_date)
+            _stretch_range(date_ranges["due"], item.due_date)
+        else:
+            _stretch_range(date_ranges["pay"], item.event_date)
+
+    invoice_dates = {}
+    for item in payments:
+        if not item.invoice_number:
+            continue
+        dates = invoice_dates.setdefault(item.invoice_number, {"inv": None, "pay": None, "due": None})
+        if float(item.amount or 0) > 0:
+            if item.event_date and (dates["inv"] is None or item.event_date < dates["inv"]):
+                dates["inv"] = item.event_date
+            if item.due_date and (dates["due"] is None or item.due_date < dates["due"]):
+                dates["due"] = item.due_date
+        elif item.event_date and (dates["pay"] is None or item.event_date > dates["pay"]):
+            dates["pay"] = item.event_date
+
+    total_invoices = len(invoice_dates)
+    filtered_invoices = total_invoices
+    if date_from or date_to:
+        passing = set()
+        for invoice_number, dates in invoice_dates.items():
+            selected = dates[date_type]
+            if not selected:
+                continue
+            if date_from and selected < date_from:
+                continue
+            if date_to and selected > date_to:
+                continue
+            passing.add(invoice_number)
+        payments = [item for item in payments if item.invoice_number in passing]
+        filtered_invoices = len(passing)
 
     bucket_order = ["Not Due", "0-30", "31-60", "61-90", "91+"]
     aging_buckets = {label: 0.0 for label in bucket_order}
@@ -330,6 +393,20 @@ def ar_dashboard(request):
             "customer_summary": customer_summary_list,
         },
         "collections": {
+            "date_filter": {
+                "type": date_type,
+                "from": date_from.isoformat() if date_from else None,
+                "to": date_to.isoformat() if date_to else None,
+                "total_invoices": total_invoices,
+                "filtered_invoices": filtered_invoices,
+                "ranges": {
+                    key: {
+                        "min": bounds[0].isoformat() if bounds[0] else None,
+                        "max": bounds[1].isoformat() if bounds[1] else None,
+                    }
+                    for key, bounds in date_ranges.items()
+                },
+            },
             "kpis": {
                 "total_collected": _money(total_collected),
                 "paid_invoices": paid_invoice_count,

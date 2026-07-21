@@ -138,7 +138,7 @@ def parse_pipeline_workbook(file_obj):
             'company':            g(2),              # C — Associated Company
             'stage':              stage,             # D — Deal Stage
             'forecast_category':  g(4).strip(),      # E — Forecast category
-            # F (5): Close Date — serial, not stored separately
+            'close_date':         _excel_date(g(5)), # F — Close Date
             'owner':              g(6),              # G — Deal owner
             'team':               g(7),              # H — HubSpot Team
             'amount':             amount,            # I — Amount

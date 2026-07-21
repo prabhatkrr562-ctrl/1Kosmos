@@ -47,7 +47,7 @@ function MainLayout({ user, onLogout }) {
                 <Navbar active={active} user={user} onLogout={onLogout} />
             </DevOverlay>
             <main>
-                {blocked ? <AccessDenied /> : isAccessControl ? <SettingsShell title="Access Control" backLabel="Settings" hideHeader><AccessControl user={user} /></SettingsShell> : isGitHub ? <SettingsShell title="GitHub" backLabel="Settings" hideHeader><GitHub /></SettingsShell> : isSettings ? <Settings user={user} /> : isPipeline ? <PipelineMain /> : isAR ? <ARMain /> : <ARRMain />}
+                {blocked ? <AccessDenied /> : isAccessControl ? <SettingsShell title="Access Control" backLabel="Settings" hideHeader><AccessControl user={user} /></SettingsShell> : isGitHub ? <SettingsShell title="GitHub" backLabel="Settings" hideHeader><GitHub /></SettingsShell> : isSettings ? <Settings user={user} /> : isPipeline ? <PipelineMain user={user} /> : isAR ? <ARMain user={user} /> : <ARRMain user={user} />}
             </main>
         </>
     );

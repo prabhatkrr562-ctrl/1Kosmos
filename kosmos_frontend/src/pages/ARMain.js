@@ -23,20 +23,33 @@ const TABS = [
 
 const FILTER_KEYS = [['region', 'Region'], ['sales_rep', 'Sales Rep'], ['customer', 'Customer']];
 
-function ARDashboard() {
+const DATE_TYPE_LABELS = { inv: 'Invoice Date', pay: 'Payment Date', due: 'Due Date' };
+const DATE_PRESETS = [
+    ['Q1 2026', '2026-01-01', '2026-03-31'],
+    ['Q2 2025', '2025-04-01', '2025-06-30'],
+    ['Q3 2025', '2025-07-01', '2025-09-30'],
+    ['Q4 2025', '2025-10-01', '2025-12-31'],
+    ['FY 2025', '2025-04-01', '2026-03-31'],
+    ['FY 2026', '2026-01-01', '2026-12-31'],
+];
+
+function ARDashboard({ user }) {
     const [data,      setData]      = useState(null);
     const [tab,       setTab]       = useState('aging');
     const [filters,   setFilters]   = useState({});
+    const [dateType,  setDateType]  = useState('inv');
     const [loading,   setLoading]   = useState(true);
     const [uploading, setUploading] = useState(false);
     const [message,   setMessage]   = useState('');
     const fileRef = useRef(null);
+    const canManageData = user?.isSuperuser || user?.access?.includes('data_manager');
 
     const query = useMemo(() => {
         const params = new URLSearchParams();
         Object.entries(filters).forEach(([k, v]) => v && params.set(k, v));
+        if (filters.date_from || filters.date_to) params.set('date_type', dateType);
         return params.toString();
-    }, [filters]);
+    }, [filters, dateType]);
 
     const loadDashboard = useCallback(async () => {
         setLoading(true);
@@ -53,7 +66,7 @@ function ARDashboard() {
     useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
     const uploadFile = async (file, mode = 'replace', table = null) => {
-        if (!file) return;
+        if (!file || !canManageData) return;
         setUploading(true); setMessage('');
         const fd = new FormData();
         fd.append('file', file);
@@ -81,6 +94,19 @@ function ARDashboard() {
     const showFilters = tab !== 'editor';
     const hasFilters  = Object.values(filters).some(Boolean);
 
+    const dateFilter  = data?.collections?.date_filter;
+    const dateRanges  = dateFilter?.ranges || {};
+    const activeRange = dateRanges[dateType] || {};
+
+    const setDateRange = (from, to) =>
+        setFilters((f) => ({ ...f, date_from: from, date_to: to }));
+
+    const handleDateTypeChange = (type) => {
+        setDateType(type);
+        const range = dateRanges[type] || {};
+        setDateRange(range.min || '', range.max || '');
+    };
+
     return (
         <div className="dash-shell ar-dashboard">
 
@@ -88,7 +114,7 @@ function ARDashboard() {
             <DevOverlay name="TabNavigation">
                 <div className="dash-subnav">
                     <div className="dash-tabs">
-                        {TABS.map(t => (
+                        {TABS.filter(t => canManageData || !['editor', 'ar_master'].includes(t.id)).map(t => (
                             <button
                                 key={t.id}
                                 data-component={t.component}
@@ -117,36 +143,83 @@ function ARDashboard() {
                 </div>
             </DevOverlay>
 
-            {/* ── Filter bar ── */}
+            {/* ── Filter bars ── */}
             {data?.has_data && showFilters && (
-                <DevOverlay name="FilterBar">
-                    <div className="dash-filterbar">
-                        <div className="dash-fb-label">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                            Filters
+                <div className="ar-sticky-filters">
+                    <DevOverlay name="FilterBar">
+                        <div className="dash-filterbar">
+                            <div className="dash-fb-label">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filters
+                            </div>
+                            <div className="dash-fb-divider" />
+                            {FILTER_KEYS.map(([key, label]) => (
+                                <label key={key} className="dash-filter-group">
+                                    <span className="dash-filter-label">{label}</span>
+                                    <select
+                                        className="dash-filter-select"
+                                        value={filters[key] || ''}
+                                        onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))}
+                                    >
+                                        <option value="">All</option>
+                                        {(data.filters[key] || []).map((o) => <option key={o}>{o}</option>)}
+                                    </select>
+                                </label>
+                            ))}
+                            {hasFilters && (
+                                <button className="dash-filter-reset" onClick={() => setFilters({})}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    Clear all
+                                </button>
+                            )}
                         </div>
-                        <div className="dash-fb-divider" />
-                        {FILTER_KEYS.map(([key, label]) => (
-                            <label key={key} className="dash-filter-group">
-                                <span className="dash-filter-label">{label}</span>
+                    </DevOverlay>
+
+                    {/* ── Collection date filter bar ── */}
+                    {tab === 'collections' && dateFilter && (
+                        <DevOverlay name="DateFilterBar">
+                            <div className="ar-datebar">
+                                <span className="ar-datebar-lbl">📅 Filter by Date:</span>
                                 <select
-                                    className="dash-filter-select"
-                                    value={filters[key] || ''}
-                                    onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))}
+                                    className="ar-datebar-sel"
+                                    value={dateType}
+                                    onChange={(e) => handleDateTypeChange(e.target.value)}
                                 >
-                                    <option value="">All</option>
-                                    {(data.filters[key] || []).map((o) => <option key={o}>{o}</option>)}
+                                    {Object.entries(DATE_TYPE_LABELS).map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
                                 </select>
-                            </label>
-                        ))}
-                        {hasFilters && (
-                            <button className="dash-filter-reset" onClick={() => setFilters({})}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                Clear all
-                            </button>
-                        )}
-                    </div>
-                </DevOverlay>
+                                <span className="ar-datebar-lbl">From</span>
+                                <input
+                                    type="date" className="ar-datebar-input"
+                                    value={filters.date_from || ''}
+                                    min={activeRange.min || undefined} max={activeRange.max || undefined}
+                                    onChange={(e) => setDateRange(e.target.value, filters.date_to || '')}
+                                />
+                                <span className="ar-datebar-dash">—</span>
+                                <input
+                                    type="date" className="ar-datebar-input"
+                                    value={filters.date_to || ''}
+                                    min={activeRange.min || undefined} max={activeRange.max || undefined}
+                                    onChange={(e) => setDateRange(filters.date_from || '', e.target.value)}
+                                />
+                                <div className="ar-datebar-div" />
+                                <span className="ar-datebar-lbl">Quick:</span>
+                                {DATE_PRESETS.map(([label, from, to]) => (
+                                    <button key={label} className="ar-datebar-btn" onClick={() => setDateRange(from, to)}>
+                                        {label}
+                                    </button>
+                                ))}
+                                <div className="ar-datebar-div" />
+                                <button className="ar-datebar-btn" onClick={() => setDateRange('', '')}>↩ Clear</button>
+                                <span className="ar-datebar-badge">
+                                    {dateFilter.filtered_invoices} / {dateFilter.total_invoices} invoices
+                                    {' · '}{DATE_TYPE_LABELS[dateType]}: {filters.date_from || '—'} → {filters.date_to || '—'}
+                                </span>
+                            </div>
+                        </DevOverlay>
+                    )}
+                </div>
             )}
 
             {/* ── Messages ── */}
@@ -167,11 +240,11 @@ function ARDashboard() {
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1877f2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </div>
                     <h2>AR Dashboard Ready</h2>
-                    <p>{data.message || 'Upload your AR Master Sheet to get started.'}</p>
-                    <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                    <p>{canManageData ? (data.message || 'Upload your AR Master Sheet to get started.') : 'No AR data has been loaded. Please contact a Data Manager.'}</p>
+                    {canManageData && <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         {uploading ? 'Importing…' : 'Upload AR Master Sheet'}
-                    </button>
+                    </button>}
                 </div>
             )}
 
@@ -193,14 +266,14 @@ function ARDashboard() {
                             <PendingInvoice data={data.renewals} />
                         </DevOverlay>
                     )}
-                    {tab === 'editor' && (
+                    {canManageData && tab === 'editor' && (
                         <DevOverlay name="LiveEditor">
-                            <LiveEditor onApply={loadDashboard} />
+                            <LiveEditor onApply={loadDashboard} canManageData={canManageData} />
                         </DevOverlay>
                     )}
-                    {tab === 'ar_master' && (
+                    {canManageData && tab === 'ar_master' && (
                         <DevOverlay name="ArMaster">
-                            <ArMaster data={data.aging} upload={uploadFile} uploading={uploading} />
+                            <ArMaster data={data.aging} upload={uploadFile} uploading={uploading} canManageData={canManageData} />
                         </DevOverlay>
                     )}
                 </div>

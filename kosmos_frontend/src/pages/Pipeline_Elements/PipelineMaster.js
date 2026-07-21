@@ -249,14 +249,14 @@ function PipelineImportModal({ onClose, onProceed, importing }) {
 
 // ── PipelineMaster ────────────────────────────────────────────────────────────
 
-function PipelineMaster({ data, handleImport, importing }) {
+function PipelineMaster({ data, handleImport, importing, canManageData = false }) {
   const [search, setSearch]               = useState('');
   const [sortField, setSortField]         = useState('amount');
   const [sortDir, setSortDir]             = useState(-1);
   const [page, setPage]                   = useState(1);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  const records = data.deals || [];
+  const records = useMemo(() => data.deals || [], [data.deals]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -295,12 +295,14 @@ function PipelineMaster({ data, handleImport, importing }) {
   };
 
   const exportCSV = () => {
+    if (!canManageData) return;
     const rows = [PM_COLS.map(c => c.label), ...filtered.map(r => PM_COLS.map(c => r[c.key] ?? ''))];
     const csv  = rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'pipeline_master.csv');
   };
 
   const exportExcel = () => {
+    if (!canManageData) return;
     const allRows = [PM_COLS.map(c => c.label), ...filtered.map(r => PM_COLS.map(c => r[c.key] ?? ''))];
     const xmlRows = allRows.map((row, ri) =>
       `<Row>${row.map((v, ci) => {
@@ -320,6 +322,8 @@ function PipelineMaster({ data, handleImport, importing }) {
       acc.push(p);
       return acc;
     }, []);
+
+  if (!canManageData) return null;
 
   return (
     <>

@@ -261,6 +261,7 @@ class PipelineRecord(models.Model):
     region = models.CharField(max_length=100, blank=True)
     sector = models.CharField(max_length=150, blank=True)
     create_date = models.DateField(null=True, blank=True)
+    close_date = models.DateField(null=True, blank=True)
     last_activity_date = models.DateField(null=True, blank=True)
     next_step = models.TextField(blank=True)
     partner_owner = models.CharField(max_length=150, blank=True)
@@ -279,6 +280,7 @@ class PipelineRecord(models.Model):
 class AccessRoleAssignment(models.Model):
     ROLE_ADMINISTRATOR = "administrator"
     ROLE_DEVELOPER = "developer"
+    ROLE_DATA_MANAGER = "data_manager"
     ROLE_PIPELINE = "pipeline"
     ROLE_AR = "ar"
     ROLE_ARR = "arr"
@@ -286,6 +288,7 @@ class AccessRoleAssignment(models.Model):
     ROLE_CHOICES = [
         (ROLE_ADMINISTRATOR, "Administrator"),
         (ROLE_DEVELOPER, "Developer"),
+        (ROLE_DATA_MANAGER, "Data Manager"),
         (ROLE_PIPELINE, "Pipeline Dashboard"),
         (ROLE_AR, "A/R Dashboard"),
         (ROLE_ARR, "ARR Dashboard"),

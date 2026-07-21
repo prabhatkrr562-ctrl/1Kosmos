@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { API_URL } from './arShared';
 
 const AGING_COLS  = ['customer','end_user','region','sales_rep','type','date','doc','due','bal'];
@@ -8,7 +8,7 @@ const PAY_HEADS   = ['Invoice #','Customer','End User','Sales Rep','Region','Typ
 const REN_COLS    = ['end_user','renewal_status','status','amount','sales_rep','region','remarks'];
 const REN_HEADS   = ['End User','Renewal Status','Status','Amount','Sales Rep','Region','Remarks'];
 
-function LiveEditor({ onApply }) {
+function LiveEditor({ onApply, canManageData = false }) {
     const [sheet, setSheet] = useState('aging');
     const [rows, setRows] = useState({ aging: [], payments: [], renewals: [] });
     const [loading, setLoading] = useState(true);
@@ -17,11 +17,8 @@ function LiveEditor({ onApply }) {
     const [editingRow, setEditingRow] = useState(null);
     const [editBackup, setEditBackup] = useState(null);
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    function loadData() {
+    const loadData = useCallback(() => {
+        if (!canManageData) return;
         setLoading(true);
         setEditingRow(null);
         fetch(`${API_URL}/api/ar/raw/`, { credentials: 'include' })
@@ -31,7 +28,11 @@ function LiveEditor({ onApply }) {
             })
             .catch(() => setStatus('Could not load raw data.'))
             .finally(() => setLoading(false));
-    }
+    }, [canManageData]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     function updateCell(sheetKey, rowIndex, col, value) {
         setRows((prev) => ({
@@ -157,6 +158,7 @@ function LiveEditor({ onApply }) {
     }
 
     function handleSaveCSV() {
+        if (!canManageData) return;
         const cols  = sheet === 'aging' ? AGING_COLS  : sheet === 'payments' ? PAY_COLS  : REN_COLS;
         const heads = sheet === 'aging' ? AGING_HEADS : sheet === 'payments' ? PAY_HEADS : REN_HEADS;
         const data = rows[sheet];
@@ -171,6 +173,8 @@ function LiveEditor({ onApply }) {
     const currentRows = rows[sheet] || [];
     const cols  = sheet === 'aging' ? AGING_COLS  : sheet === 'payments' ? PAY_COLS  : REN_COLS;
     const heads = sheet === 'aging' ? AGING_HEADS : sheet === 'payments' ? PAY_HEADS : REN_HEADS;
+
+    if (!canManageData) return null;
 
     return (
         <div className="ar-editor-wrap">
