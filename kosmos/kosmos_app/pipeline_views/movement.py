@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from ..models import PipelineImport
-from .shared import STAGE_ORDER, _week_sort_key
+from .shared import STAGE_ORDER, _movement_key, _week_sort_key
 
 ACTIVE_STAGES = {
     "5% - Prospecting", "20%-Discovery", "40%-Scoping",
@@ -24,14 +24,20 @@ def _days(d):
 
 def _build_movement_between(base_qs, from_week, to_week):
     """Compute stage movements between any two weeks with enriched deal fields."""
-    prev_records = {row.record_id: row for row in base_qs.filter(week=from_week) if row.record_id}
-    curr_records = {row.record_id: row for row in base_qs.filter(week=to_week)   if row.record_id}
+    prev_records = {
+        _movement_key(row): row
+        for row in base_qs.filter(week=from_week)
+        if _movement_key(row)
+    }
+    curr_records = [row for row in base_qs.filter(week=to_week) if _movement_key(row)]
 
     movement = {"matrix": {}, "forward": [], "backward": [], "won": [], "lost": [], "new": []}
     matrix   = defaultdict(lambda: defaultdict(int))
 
-    for record_id, curr in curr_records.items():
-        if record_id not in prev_records:
+    for curr in curr_records:
+        movement_key = _movement_key(curr)
+        record_id = curr.record_id
+        if movement_key not in prev_records:
             movement["new"].append({
                 "record_id":   record_id,
                 "deal_name":   curr.deal_name,
@@ -44,7 +50,7 @@ def _build_movement_between(base_qs, from_week, to_week):
             })
             continue
 
-        prev = prev_records[record_id]
+        prev = prev_records[movement_key]
         if prev.stage == curr.stage:
             continue
 

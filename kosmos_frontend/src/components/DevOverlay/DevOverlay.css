@@ -27,6 +27,15 @@
   top: auto;
 }
 
+/* compact-density.css gives the dashboard filter a sticky top with !important.
+   In developer mode the wrapper owns that sticky offset, so the child must not
+   receive the same offset a second time. */
+.dov-filterbar > .dash-filterbar {
+  top: auto !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Only highlight the innermost hovered wrapper, not ancestors */
 .dov-wrap:hover:not(:has(.dov-wrap:hover)) {
   outline: 2px dashed rgba(124, 58, 237, 0.6);
@@ -71,4 +80,32 @@
 
 .dov-btn:hover {
   background: #6d28d9;
+}
+
+/* Keep the Navbar inspector away from the profile/avatar control. The compact
+   icon sits in the empty area before the avatar and expands toward the left. */
+.dov-navbar > .dov-btn {
+  top: 8px;
+  right: 48px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  justify-content: center;
+  box-shadow: 0 2px 7px rgba(124, 58, 237, 0.28);
+}
+
+.dov-navbar > .dov-btn > span {
+  display: none;
+}
+
+.dov-navbar > .dov-btn:hover,
+.dov-navbar > .dov-btn:focus-visible {
+  width: auto;
+  padding: 0 8px;
+}
+
+.dov-navbar > .dov-btn:hover > span,
+.dov-navbar > .dov-btn:focus-visible > span {
+  display: inline;
 }

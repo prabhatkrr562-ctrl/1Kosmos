@@ -109,7 +109,7 @@ def _compute_ltm(records):
 
 def _build_waterfall(records, trend_months):
     result = []
-    months = trend_months[-13:]
+    months = trend_months[-18:]
     has_explicit_changes = any(record.monthly_changes for record in records)
     for i in range(1, len(months)):
         prev_m, curr_m = months[i - 1], months[i]

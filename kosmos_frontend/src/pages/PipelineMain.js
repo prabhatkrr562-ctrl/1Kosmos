@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import './dashShared.css';
 import './PipelineMain.css';
 
@@ -19,6 +19,7 @@ import { DevOverlay }     from '../components/DevOverlay/DevOverlay';
 import { DashboardLoader } from '../components/DashboardLoader/DashboardLoader';
 import { DashboardAIChat } from '../components/DashboardAIChat/DashboardAIChat';
 import { readApiJson } from '../utils/apiErrors';
+import { API_URL } from '../config/api';
 
 const TABS = [
   { id: 'exec',      label: '📊 Executive',                  dot: '#1877f2', component: 'Executive' },
@@ -36,47 +37,93 @@ const TABS = [
   { id: 'pl_master', label: 'Pipeline Master',               dot: '#6d28d9', component: 'PipelineMaster' },
 ];
 
+const EMPTY_FILTERS = {
+  team: '', owner: '', stage: '', forecast: '', region: '', order_type: '',
+  quarter: '', year: '',
+};
+
 const FILTER_DEFS = [
-  ['week',    'Week'   ],
-  ['owner',   'Owner'  ],
-  ['team',    'Team'   ],
-  ['quarter', 'Quarter'],
-  ['region',  'Region' ],
-  ['sector',  'Sector' ],
+  { key: 'team', label: 'Team', empty: 'All Teams' },
+  { key: 'owner', label: 'Rep', empty: 'All Reps' },
+  { key: 'stage', label: 'Stage', empty: 'All Stages' },
+  { key: 'forecast', label: 'Forecast', empty: 'All Forecasts' },
+  { key: 'region', label: 'Region', empty: 'All Regions' },
+  { key: 'order_type', label: 'Type', empty: 'All Types' },
+  { key: 'quarter', label: 'Quarter', empty: 'All Quarters' },
 ];
 
-function Pipeline() {
+const REFERENCE_OPTIONS = {
+  team: [['Sales - N.A. Direct', 'NA Direct'], ['Sales - APJ Direct', 'APJ Direct']],
+  owner: [
+    ['Fadi Jarrar', 'Fadi Jarrar'], ['Frank Mendicino', 'Frank Mendicino'],
+    ['William Easton', 'William Easton'], ['Cody Dussault', 'Cody Dussault'],
+    ['Dan Ryan', 'Dan Ryan'], ['robert sokolowski', 'R. Sokolowski'],
+    ['Siddharth Gandhi', 'Siddharth Gandhi'], ['Rohit Kumar', 'Rohit Kumar'],
+    ['Dev Singh', 'Dev Singh'],
+  ],
+  stage: [
+    ['5% - Prospecting', '5% Prospecting'], ['20%-Discovery', '20% Discovery'],
+    ['40%-Scoping', '40% Scoping'], ['60%-Propose', '60% Propose'],
+    ['80%-Validate', '80% Validate'], ['90%-Negotiate & Close', '90% Negotiate'],
+    ['Business Won', 'Business Won'],
+  ],
+  forecast: [
+    ['Commit', 'Commit'], ['Upside', 'Upside'],
+    ['Not forecasted', 'Not Forecasted'], ['Closed won', 'Closed Won'],
+  ],
+  region: [['North America', 'North America'], ['APAC', 'APAC']],
+  order_type: [
+    ['New Business', 'New Business'], ['Upsell', 'Upsell'], ['Cross-Sell', 'Cross-Sell'],
+  ],
+};
+
+const ALL_QUARTERS = [
+  'Q1 26', 'Q2 26', 'Q3 26', 'Q4 26',
+  'Q1 27', 'Q2 27', 'Q3 27', 'Q4 27', 'Q3 27+',
+];
+
+const fmtFilterMoney = value => {
+  const amount = Number(value) || 0;
+  if (amount === 0) return '$0';
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(2)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return `$${Math.round(amount).toLocaleString()}`;
+};
+
+function Pipeline({ user }) {
   const [tab,       setTab]       = useState('exec');
+  const [selectedRep, setSelectedRep] = useState(null);
   const [data,      setData]      = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState('');
+  const [viewMode, setViewMode] = useState('unweighted');
   const fileRef = useRef(null);
+  const canManageData = user?.isSuperuser || user?.access?.includes('data_manager');
 
-  const [filters, setFilters] = useState({
-    week: '', owner: '', team: '', quarter: '', region: '', sector: '',
-  });
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   const fetchData = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-    fetch(`/api/pipeline/?${params}`, { credentials: 'include' })
+    params.set('view_mode', viewMode);
+    fetch(`${API_URL}/api/pipeline/?${params}`, { credentials: 'include' })
       .then(r => readApiJson(r, 'Pipeline dashboard API unavailable. Check Django is running on port 8000.'))
       .then(d => { setData(d); setLoading(false); })
       .catch(error => { setImportMsg(error.message); setLoading(false); });
-  }, [filters]);
+  }, [filters, viewMode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleImport = useCallback((file, mode = 'replace') => {
-    if (!file) return;
+    if (!file || !canManageData) return;
     const fd = new FormData();
     fd.append('file', file);
     fd.append('mode', mode);
     setImporting(true);
     setImportMsg('');
-    fetch('/api/pipeline/import/', { method: 'POST', body: fd, credentials: 'include' })
+    fetch(`${API_URL}/api/pipeline/import/`, { method: 'POST', body: fd, credentials: 'include' })
       .then(r => readApiJson(r, 'Upload failed.'))
       .then(d => {
         setImportMsg(d.message || 'Done');
@@ -84,16 +131,39 @@ function Pipeline() {
         if (d.message) fetchData();
       })
       .catch(error => { setImportMsg(error.message); setImporting(false); });
-  }, [fetchData]);
+  }, [canManageData, fetchData]);
 
-  const setFilter = (key, val) => setFilters(f => ({ ...f, [key]: val }));
-  const clearFilters = () => setFilters({ week: '', owner: '', team: '', quarter: '', region: '', sector: '' });
+  const setFilter = (key, val) => setFilters(current => {
+    if (key !== 'year') return { ...current, [key]: val };
+    const quarterMatchesYear = !current.quarter
+      || (val === '26' && current.quarter.endsWith(' 26'))
+      || (val === '27' && (current.quarter.endsWith(' 27') || current.quarter === 'Q3 27+'));
+    return { ...current, year: val, quarter: !val || quarterMatchesYear ? current.quarter : '' };
+  });
+  const clearFilters = () => setFilters(EMPTY_FILTERS);
   const hasFilters = Object.values(filters).some(Boolean);
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const openRep = useCallback((owner) => {
+    setSelectedRep(owner || null);
+    setTab('repdetail');
+  }, []);
+  const openMovement = useCallback(() => setTab('movement'), []);
 
-  const opts = data?.filters || {};
+  const optionsFor = useCallback(key => {
+    if (key === 'quarter') {
+      if (filters.year === '26') return ALL_QUARTERS.filter(value => value.endsWith(' 26'));
+      if (filters.year === '27') return ALL_QUARTERS.filter(value => value.endsWith(' 27') || value === 'Q3 27+');
+      return ALL_QUARTERS;
+    }
+    return REFERENCE_OPTIONS[key] || [];
+  }, [filters.year]);
+  const filterResult = useMemo(() => ({
+    deals: data?.kpis?.active_deals || 0,
+    amount: data?.kpis?.active_pipeline || 0,
+  }), [data]);
 
   /* ── Loading ── */
-  if (loading) return (
+  if (loading && !data) return (
     <div className="dash-shell">
       <div className="dash-loading">
         <DashboardLoader label="Preparing pipeline dashboard..." />
@@ -110,11 +180,11 @@ function Pipeline() {
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1877f2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         </div>
         <h2>Pipeline Intelligence</h2>
-        <p>No pipeline data yet. Upload your Pipeline Database Excel file to get started.</p>
-        <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={importing}>
+        <p>{canManageData ? 'No pipeline data yet. Upload your Pipeline Database Excel file to get started.' : 'No pipeline data has been loaded. Please contact a Data Manager.'}</p>
+        {canManageData && <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={importing}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           {importing ? 'Importing…' : 'Upload Pipeline Excel'}
-        </button>
+        </button>}
         <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleImport(f); }} />
         {importMsg && <p className="dash-import-msg">{importMsg}</p>}
       </div>
@@ -128,7 +198,7 @@ function Pipeline() {
       <DevOverlay name="TabNavigation">
         <div className="dash-subnav">
           <div className="dash-tabs">
-            {TABS.map(t => (
+            {TABS.filter(t => canManageData || t.id !== 'pl_master').map(t => (
               <button
                 key={t.id}
                 data-component={t.component}
@@ -160,43 +230,77 @@ function Pipeline() {
 
       {/* ── Filter bar ── */}
       <DevOverlay name="FilterBar">
-        <div className="dash-filterbar">
-          <div className="dash-fb-label">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            Filters
-          </div>
-          <div className="dash-fb-divider" />
-          {FILTER_DEFS.map(([key, label]) => (
-            <label key={key} className="dash-filter-group">
-              <span className="dash-filter-label">{label}</span>
+        <>
+        <div className="dash-filterbar pipeline-filterbar" aria-busy={loading}>
+          <span className="pipeline-filter-label">Filters</span>
+          {FILTER_DEFS.map(({ key, label, empty }) => (
+            <label key={key} className="pipeline-filter-control">
+              <span className="sr-only">{label}</span>
               <select
-                className="dash-filter-select"
+                className="pipeline-filter-select"
                 value={filters[key]}
                 onChange={e => setFilter(key, e.target.value)}
+                aria-label={label}
               >
-                {key === 'week'
-                  ? <option value="">Latest ({data.selected_week})</option>
-                  : <option value="">All</option>
-                }
-                {(opts[`${key}s`] || opts[key] || []).map(v => <option key={v} value={v}>{v}</option>)}
+                <option value="">{empty}</option>
+                {optionsFor(key).map(option => {
+                  const [value, text] = Array.isArray(option) ? option : [option, option];
+                  return <option key={value} value={value}>{text}</option>;
+                })}
               </select>
             </label>
           ))}
-          {hasFilters && (
-            <button className="dash-filter-reset" onClick={clearFilters}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              Clear all
-            </button>
-          )}
-          <span className="dash-week-badge">{data.selected_week}</span>
+          <span className="pipeline-filter-label pipeline-year-label">📅 Year</span>
+          <label className="pipeline-filter-control">
+            <span className="sr-only">Year</span>
+            <select
+              className="pipeline-filter-select pipeline-year-select"
+              value={filters.year}
+              onChange={e => setFilter('year', e.target.value)}
+              aria-label="Year"
+            >
+              <option value="">All Years</option>
+              <option value="26">FY 2026</option>
+              <option value="27">FY 2027</option>
+            </select>
+          </label>
+          <span className="pipeline-filter-divider" />
+          <span className="pipeline-filter-label pipeline-view-label">📊 View</span>
+          <span className="pipeline-view-toggle" role="group" aria-label="Pipeline value view">
+            {['unweighted', 'weighted'].map(mode => (
+              <button
+                key={mode}
+                type="button"
+                className={`pipeline-view-button${viewMode === mode ? ' active' : ''}`}
+                aria-pressed={viewMode === mode}
+                onClick={() => setViewMode(mode)}
+              >
+                {mode === 'unweighted' ? 'Unweighted' : 'Weighted'}
+              </button>
+            ))}
+          </span>
+          <span className="pipeline-filter-divider" />
+          <button type="button" className="pipeline-filter-reset" onClick={clearFilters}>↺ Reset</button>
+          {hasFilters && <span className="pipeline-filter-status">({activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'} active)</span>}
         </div>
+        {hasFilters && (
+          <div className="pipeline-filter-banner">
+            <span>
+              🔍 {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'} active
+              {filters.year ? ` · 📅 FY20${filters.year}` : ''}
+              {' — '}{filterResult.deals} deals · {fmtFilterMoney(filterResult.amount)}
+            </span>
+            <button type="button" onClick={clearFilters}>✕ Clear All Filters</button>
+          </div>
+        )}
+        </>
       </DevOverlay>
 
       {/* ── Content ── */}
       <div className="dash-content pl-body">
         {tab === 'exec' && (
           <DevOverlay name="Executive">
-            <Executive data={data} />
+            <Executive data={data} onNavigate={setTab} />
           </DevOverlay>
         )}
         {tab === 'trend' && (
@@ -211,12 +315,12 @@ function Pipeline() {
         )}
         {tab === 'reps' && (
           <DevOverlay name="RepKPIs">
-            <RepKpis data={data} />
+            <RepKpis data={data} onSelectRep={openRep} />
           </DevOverlay>
         )}
         {tab === 'forecast' && (
           <DevOverlay name="Forecast">
-            <Forecast data={data} />
+            <Forecast data={data} onSelectRep={openRep} />
           </DevOverlay>
         )}
         {tab === 'region' && (
@@ -226,7 +330,7 @@ function Pipeline() {
         )}
         {tab === 'repdetail' && (
           <DevOverlay name="RepDeepDive">
-            <RepDeepDive data={data} />
+            <RepDeepDive data={data} initialRep={selectedRep} />
           </DevOverlay>
         )}
         {tab === 'explorer' && (
@@ -236,12 +340,12 @@ function Pipeline() {
         )}
         {tab === 'fpa' && (
           <DevOverlay name="FPA">
-            <FPA data={data} />
+            <FPA data={data} onSelectRep={openRep} />
           </DevOverlay>
         )}
         {tab === 'aging' && (
           <DevOverlay name="StageStall">
-            <StageStall data={data} />
+            <StageStall data={data} onSelectRep={openRep} onOpenMovement={openMovement} />
           </DevOverlay>
         )}
         {tab === 'benchmark' && (
@@ -251,16 +355,16 @@ function Pipeline() {
         )}
         {tab === 'commentary' && (
           <DevOverlay name="Commentary">
-            <Commentary data={data} />
+            <Commentary data={data} onOpenMovement={openMovement} />
           </DevOverlay>
         )}
-        {tab === 'pl_master' && (
+        {canManageData && tab === 'pl_master' && (
           <DevOverlay name="PipelineMaster">
-            <PipelineMaster data={data} handleImport={handleImport} importing={importing} />
+            <PipelineMaster data={data} handleImport={handleImport} importing={importing} canManageData={canManageData} />
           </DevOverlay>
         )}
       </div>
-      <DashboardAIChat dashboard="pipeline" activeTab={tab} filters={filters} />
+      <DashboardAIChat dashboard="pipeline" activeTab={tab} filters={{ ...filters, view_mode: viewMode }} />
     </div>
   );
 }

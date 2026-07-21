@@ -26,26 +26,34 @@ const TABS = [
 ];
 
 const FILTER_DEFS = [
-  ['business_unit', 'Business Unit', 'All BUs'],
+  ['business_unit', 'BU', 'All BUs'],
   ['sales_person', 'Sales Rep', 'All Sales Reps'],
-  ['sub_product_type', 'Sub-Product', 'All Sub-Products'],
+  ['sub_product_type', 'Sub Product', 'All Sub-Products'],
   ['line_of_business', 'LOB', 'All LOBs'],
 ];
 
-function Dashboard() {
+function Dashboard({ user }) {
   const [data,      setData]      = useState(null);
   const [tab,       setTab]       = useState('arr');
   const [filters,   setFilters]   = useState({});
+  const [period,    setPeriod]    = useState('ytd');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [loading,   setLoading]   = useState(true);
   const [uploading, setUploading] = useState(false);
   const [msg,       setMsg]       = useState('');
   const fileRef = useRef(null);
+  const canManageData = user?.isSuperuser || user?.access?.includes('data_manager');
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && p.set(k, v));
+    p.set('period', period);
+    if (period === 'custom') {
+      if (customRange.from) p.set('from', customRange.from);
+      if (customRange.to) p.set('to', customRange.to);
+    }
     return p.toString();
-  }, [filters]);
+  }, [filters, period, customRange]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +72,7 @@ function Dashboard() {
   const upload = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
+    if (!file || !canManageData) return;
     setUploading(true);
     setMsg('');
     const fd = new FormData();
@@ -73,6 +81,8 @@ function Dashboard() {
       const res = await fetch(`${API_URL}/api/import/`, { method: 'POST', body: fd, credentials: 'include' });
       const r = await readApiJson(res, 'Import failed.');
       setFilters({});
+      setPeriod('ytd');
+      setCustomRange({ from: '', to: '' });
       setMsg(r.message);
       await load();
     } catch (e) {
@@ -83,7 +93,22 @@ function Dashboard() {
   };
 
   const fo = data?.filters || {};
-  const hasFilters = Object.values(filters).some(Boolean);
+  const periodInfo = data?.period || {};
+  const rangeFrom = period === 'custom' ? customRange.from : (periodInfo.from || '');
+  const rangeTo = period === 'custom' ? customRange.to : (periodInfo.to || '');
+
+  const changePeriod = (value) => {
+    if (value === 'custom' && (!customRange.from || !customRange.to)) {
+      setCustomRange({ from: periodInfo.from || '', to: periodInfo.to || '' });
+    }
+    setPeriod(value);
+  };
+
+  const resetFilters = () => {
+    setFilters({});
+    setPeriod('ytd');
+    setCustomRange({ from: '', to: '' });
+  };
 
   return (
     <div className="dash-shell">
@@ -92,7 +117,7 @@ function Dashboard() {
       <DevOverlay name="TabNavigation">
         <div className="dash-subnav">
           <div className="dash-tabs">
-            {TABS.map(t => (
+            {TABS.filter(t => canManageData || t.id !== 'bookings').map(t => (
               <button
                 key={t.id}
                 data-component={t.component}
@@ -130,6 +155,42 @@ function Dashboard() {
               Filters
             </div>
             <div className="dash-fb-divider" />
+            <label className="dash-filter-group">
+              <span className="dash-filter-label">Period</span>
+              <select className="dash-filter-select" value={period} onChange={e => changePeriod(e.target.value)}>
+                <option value="ytd">YTD</option>
+                <option value="qtd">QTD</option>
+                <option value="ltm">LTM</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <div className={`arr-date-range${period !== 'custom' ? ' disabled' : ''}`}>
+              <label className="dash-filter-group">
+                <span className="dash-filter-label">From</span>
+                <input
+                  className="dash-filter-month"
+                  type="month"
+                  value={rangeFrom}
+                  max={rangeTo || periodInfo.latest_month || undefined}
+                  disabled={period !== 'custom'}
+                  onChange={e => setCustomRange(range => ({ ...range, from: e.target.value }))}
+                />
+              </label>
+              <span className="arr-date-separator">—</span>
+              <label className="dash-filter-group">
+                <span className="dash-filter-label">To</span>
+                <input
+                  className="dash-filter-month"
+                  type="month"
+                  value={rangeTo}
+                  min={rangeFrom || undefined}
+                  max={periodInfo.latest_month || undefined}
+                  disabled={period !== 'custom'}
+                  onChange={e => setCustomRange(range => ({ ...range, to: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="dash-fb-divider" />
             {FILTER_DEFS.map(([k, l, allLabel]) => (
               <label key={k} className="dash-filter-group">
                 <span className="dash-filter-label">{l}</span>
@@ -143,12 +204,7 @@ function Dashboard() {
                 </select>
               </label>
             ))}
-            {hasFilters && (
-              <button className="dash-filter-reset" onClick={() => setFilters({})}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                Clear all
-              </button>
-            )}
+            <button className="dash-filter-reset" onClick={resetFilters}>↩ Reset</button>
           </div>
         </DevOverlay>
       )}
@@ -171,11 +227,11 @@ function Dashboard() {
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1877f2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </div>
           <h2>ARR Dashboard ready</h2>
-          <p>{data.message || 'Upload your Booking Database Excel file to get started.'}</p>
-          <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
+          <p>{canManageData ? (data.message || 'Upload your Booking Database Excel file to get started.') : 'No ARR data has been loaded. Please contact a Data Manager.'}</p>
+          {canManageData && <button className="dash-empty-btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             {uploading ? 'Importing…' : 'Upload Booking Database'}
-          </button>
+          </button>}
         </div>
       )}
 
@@ -212,9 +268,9 @@ function Dashboard() {
               <Rep360Tab data={data} />
             </DevOverlay>
           )}
-          {tab === 'bookings' && (
+          {canManageData && tab === 'bookings' && (
             <DevOverlay name="ManageData">
-              <BookingMasterTab data={data} onSuccess={load} />
+              <BookingMasterTab data={data} onSuccess={load} canManageData={canManageData} />
             </DevOverlay>
           )}
         </div>

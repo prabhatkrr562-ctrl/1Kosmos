@@ -324,14 +324,14 @@ function ArImportModal({ onClose, onProceed, uploading }) {
 
 // ── ArMaster ──────────────────────────────────────────────────────────────────
 
-function ArMaster({ data, upload, uploading }) {
+function ArMaster({ data, upload, uploading, canManageData = false }) {
     const [search, setSearch]             = useState('');
     const [sortField, setSortField]       = useState('open_balance');
     const [sortDir, setSortDir]           = useState(-1);
     const [page, setPage]                 = useState(1);
     const [showImportModal, setShowImportModal] = useState(false);
 
-    const records = data.records || [];
+    const records = useMemo(() => data.records || [], [data.records]);
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
@@ -373,12 +373,14 @@ function ArMaster({ data, upload, uploading }) {
     };
 
     const exportCSV = () => {
+        if (!canManageData) return;
         const rows = [AR_COLS.map(c => c.label), ...filtered.map(r => AR_COLS.map(c => r[c.key] ?? ''))];
         const csv  = rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'ar_master.csv');
     };
 
     const exportExcel = () => {
+        if (!canManageData) return;
         const allRows = [AR_COLS.map(c => c.label), ...filtered.map(r => AR_COLS.map(c => r[c.key] ?? ''))];
         const xmlRows = allRows.map((row, ri) =>
             `<Row>${row.map((v, ci) => {
@@ -398,6 +400,8 @@ function ArMaster({ data, upload, uploading }) {
             acc.push(p);
             return acc;
         }, []);
+
+    if (!canManageData) return null;
 
     return (
         <>

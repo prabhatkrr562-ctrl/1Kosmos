@@ -691,21 +691,11 @@ function AgingView({ data: sourceData, asOf }) {
     return (
         <>
             <div className="ar-kpi-grid">
-                <div onClick={() => setShowBilledARModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={1} label="Billed AR O/S Prabhat kumar" value={fmt(kpi.total_ar)} sub={`${data.records.length} line items`} ico="💰" />
-                </div>
-                <div onClick={() => setShowOverdueModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={2} label="Total Overdue" value={fmt(kpi.overdue)} sub={`${Math.round(kpi.overdue_percent || 0)}% of AR`} ico="⚠" />
-                </div>
-                <div onClick={() => setShow91Modal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={3} label="91+ Days" value={fmt(kpi.critical_91_plus)} sub="Critical bucket" ico="🔴" />
-                </div>
-                <div onClick={() => setShowCurrentModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={4} label="Current (Not Due)" value={fmt(kpi.not_due)} sub="Within terms" ico="✓" />
-                </div>
-                <div onClick={() => setShowRegionsModal(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                    <KCard variant={5} label="Regions" value={kpi.regions} sub={Object.keys(data.region_buckets || {}).join(' · ')} ico="🌐" />
-                </div>
+                <KCard variant={1} label="Billed AR O/S" value={fmt(kpi.total_ar)} sub={`${data.records.length} line items`} ico="💰" onClick={() => setShowBilledARModal(true)} />
+                <KCard variant={2} label="Total Overdue" value={fmt(kpi.overdue)} sub={`${Math.round(kpi.overdue_percent || 0)}% of AR`} ico="⚠" onClick={() => setShowOverdueModal(true)} />
+                <KCard variant={3} label="91+ Days" value={fmt(kpi.critical_91_plus)} sub="Critical bucket" ico="🔴" onClick={() => setShow91Modal(true)} />
+                <KCard variant={4} label="Current (Not Due)" value={fmt(kpi.not_due)} sub="Within terms" ico="✓" onClick={() => setShowCurrentModal(true)} />
+                <KCard variant={5} label="Regions" value={kpi.regions} sub={Object.keys(data.region_buckets || {}).join(' · ')} ico="🌐" onClick={() => setShowRegionsModal(true)} />
             </div>
 
             {regionEntries.length > 0 && (

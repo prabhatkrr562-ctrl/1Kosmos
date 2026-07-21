@@ -1,513 +1,309 @@
-import { fmt, Card, DonutChart, HBarChart, LineChart } from './plShared';
-import { DrillModal, DealModal, useDrill } from './DrillModal';
+import { fmt, fmtN } from './plShared';
+import { DealModal, DrillModal, useDrill } from './DrillModal';
 
-function shortMoney(value) {
-  return fmt(Number(value || 0));
-}
+const ACTIVE_STAGES = [
+  '5% - Prospecting', '20%-Discovery', '40%-Scoping',
+  '60%-Propose', '80%-Validate', '90%-Negotiate & Close',
+];
 
-function deltaText(value, suffix = '') {
-  const n = Number(value || 0);
-  const arrow = n >= 0 ? '▲' : '▼';
-  return `${arrow} ${n >= 0 ? '+' : ''}${n.toFixed(1)}%${suffix}`;
-}
+const DONUT_COLORS = ['#7c3aed', '#2563eb', '#0d9488', '#d97706', '#ea580c', '#dc2626', '#059669'];
+const toNumber = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const total = (rows, field = 'amount') => rows.reduce((sum, row) => sum + toNumber(row[field]), 0);
+const money = value => fmt(toNumber(value));
+const cleanForecast = deal => String(deal.forecast_category || '').trim();
+const changePct = (current, previous) => previous ? ((current - previous) / previous) * 100 : 0;
 
-/* ── Inline mini bar sparkline ── */
-function Sparkline({ data = [], color = '#0891b2' }) {
-  const max = Math.max(...data.map((d) => Math.abs(Number(d.value || 0))), 1);
+function Sparkline({ values = [], color }) {
+  if (!values.length) return null;
+  const max = Math.max(...values.map(toNumber).map(Math.abs), 1);
   return (
-    <div className="spark">
-      {data.map((item, i) => (
-        <div
+    <span className="spark" aria-hidden="true">
+      {values.map((value, index) => (
+        <i
           className="sb"
-          key={`${item.label}-${i}`}
-          style={{
-            height: `${Math.max(2, Math.round(Math.abs(Number(item.value || 0)) / max * 26))}px`,
-            background: color,
-            flex: 1,
-          }}
+          key={index}
+          style={{ height: `${Math.max(2, Math.round(Math.abs(toNumber(value)) / max * 26))}px`, background: color, flex: 1 }}
         />
       ))}
-    </div>
+    </span>
   );
 }
 
-/* ── KPI card ── */
-function ExecKpi({ label, value, delta, deltaClass, hint, color = 'k-blue', icon = '', spark = null, sparkColor = '#0891b2', onClick, clickHint = '🔍 Click → see deals' }) {
+function KpiCard({ label, value, delta, deltaClass = '', hint, color, spark, sparkColor, onClick, clickHint = '🔍 Click → drill into deals' }) {
   return (
-    <div
-      className={`pl-kpi ${color}${onClick ? ' pl-card-clickable' : ''}`}
+    <button
+      type="button"
+      className={`kc ${color}`}
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : {}}
+      style={{ textAlign: 'left', font: 'inherit', width: '100%' }}
     >
-      {icon && <div className="pl-kpi-icon">{icon}</div>}
-      <div className="pl-kpi-label">{label}</div>
-      <div className="pl-kpi-value">{value}</div>
-      {delta && <div className={`pl-kpi-sub ${deltaClass || ''}`}>{delta}</div>}
-      {hint  && <div className="pl-kpi-sub" style={{ fontSize: 10, marginTop: 2 }}>{hint}</div>}
-      {spark && spark.length > 0 && <Sparkline data={spark} color={sparkColor} />}
-      {onClick && <div className="pl-click-hint">{clickHint}</div>}
-    </div>
+      <span className="kl">{label}</span>
+      <span className="kv">{value}</span>
+      <span className={`kd ${deltaClass}`}>{delta}</span>
+      <span className="kh">{hint}</span>
+      <span className="click-hint">{clickHint}</span>
+      <Sparkline values={spark} color={sparkColor} />
+    </button>
   );
 }
 
-/* ── Coverage gauge box ── */
-function GaugeBox({ title, multiple, weightedMultiple }) {
-  const cls  = multiple >= 2 ? 'gok' : multiple >= 1 ? 'gwarn' : 'gbad';
-  const wCls = weightedMultiple >= 1 ? 'gok' : weightedMultiple >= 0.7 ? 'gwarn' : 'gbad';
+function Card({ title, sub, children, onClick, hint }) {
   return (
-    <div className="pl-gauge-box">
-      <div className="pl-gauge-lbl">{title}</div>
-      <div className={`pl-gauge-v ${cls}`}>{(multiple || 0).toFixed(2)}×</div>
-      <div className="pl-gauge-sub">
-        Weighted: <span className={wCls}>{(weightedMultiple || 0).toFixed(2)}×</span>
+    <section className={`pl-card${onClick ? ' pl-card-clickable' : ''}`} onClick={onClick}>
+      <div className="pl-card-header" style={{ display: 'block' }}>
+        <div className="pl-card-title">{title}</div>
+        {sub && <div className="pl-card-sub">{sub}</div>}
+      </div>
+      {children}
+      {onClick && <div className="ch">{hint || '🔍 Click to drill into deals'}</div>}
+    </section>
+  );
+}
+
+function TrendChart({ rows, aop, target, onWeekClick }) {
+  if (!rows.length) return <div className="pl-chart-empty">No trend data available.</div>;
+
+  const width = 700;
+  const height = 300;
+  const pad = { left: 12, right: 66, top: 14, bottom: 26 };
+  const max = Math.max(...rows.flatMap(row => [toNumber(row.active), toNumber(row.weighted), toNumber(row.won)]), aop, target, 1);
+  const x = index => pad.left + index / (rows.length - 1 || 1) * (width - pad.left - pad.right);
+  const y = value => pad.top + (1 - toNumber(value) / max) * (height - pad.top - pad.bottom);
+  const points = key => rows.map((row, index) => `${x(index)},${y(row[key])}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="pl-trend-svg" role="img" aria-label="Pipeline trend">
+      {[.25, .5, .75, 1].map(ratio => (
+        <line key={ratio} x1={pad.left} y1={y(max * ratio)} x2={width - pad.right} y2={y(max * ratio)} stroke="#d1d5db" strokeWidth="1" />
+      ))}
+      {aop > 0 && <><line x1={pad.left} y1={y(aop)} x2={width - pad.right} y2={y(aop)} stroke="#d97706" strokeDasharray="5 4" /><text x={width - pad.right + 5} y={y(aop) + 4} fontSize="9" fill="#d97706">AOP</text></>}
+      {target > 0 && <><line x1={pad.left} y1={y(target)} x2={width - pad.right} y2={y(target)} stroke="#dc2626" strokeDasharray="5 4" /><text x={width - pad.right + 5} y={y(target) + 4} fontSize="9" fill="#dc2626">Target</text></>}
+      <polyline points={points('active')} fill="none" stroke="#0891b2" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={points('weighted')} fill="none" stroke="#7c3aed" strokeWidth="2" strokeDasharray="4 3" strokeLinejoin="round" />
+      <polyline points={points('won')} fill="none" stroke="#059669" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {rows.map((row, index) => (
+        <g key={`${row.week || 'week'}-${index}`}>
+          <circle cx={x(index)} cy={y(row.active)} r="4" fill="#0891b2" role="button" tabIndex="0" onClick={event => { event.stopPropagation(); onWeekClick(row); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.stopPropagation(); onWeekClick(row); } }}>
+            <title>{`${row.week || `W${row.week_num}`}: ${money(row.active)}`}</title>
+          </circle>
+          <text x={x(index)} y={height - 5} textAnchor="middle" fontSize="8.5" fill="#6b7280">W{row.week_num}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function Donut({ items, onItemClick }) {
+  const visible = items.filter(item => toNumber(item.value) > 0);
+  if (!visible.length) return <div className="pl-chart-empty">No data available.</div>;
+  const sum = visible.reduce((value, item) => value + toNumber(item.value), 0) || 1;
+  const center = 76;
+  const outer = 66;
+  const inner = 39;
+  let angle = -Math.PI / 2;
+  const arcs = visible.map((item, index) => {
+    const sweep = toNumber(item.value) / sum * Math.PI * 2;
+    const start = angle;
+    angle += sweep;
+    const point = (radius, radians) => [center + radius * Math.cos(radians), center + radius * Math.sin(radians)];
+    const [x1, y1] = point(outer, start);
+    const [x2, y2] = point(outer, angle);
+    const [x3, y3] = point(inner, start);
+    const [x4, y4] = point(inner, angle);
+    return {
+      item,
+      color: DONUT_COLORS[index % DONUT_COLORS.length],
+      path: `M${x1} ${y1}A${outer} ${outer} 0 ${sweep > Math.PI ? 1 : 0} 1 ${x2} ${y2}L${x4} ${y4}A${inner} ${inner} 0 ${sweep > Math.PI ? 1 : 0} 0 ${x3} ${y3}Z`,
+    };
+  });
+  return (
+    <div className="pl-reference-donut">
+      <svg viewBox="0 0 152 152" aria-label="Distribution chart">
+        {arcs.map(({ item, color, path }) => (
+          <path key={item.label} d={path} fill={color} stroke="#f0f2f5" strokeWidth="2" role="button" tabIndex="0" onClick={event => { event.stopPropagation(); onItemClick(item); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.stopPropagation(); onItemClick(item); } }}>
+            <title>{`${item.label}: ${money(item.value)}`}</title>
+          </path>
+        ))}
+      </svg>
+      <div className="pl-reference-legend">
+        {arcs.map(({ item, color }) => (
+          <button type="button" key={item.label} onClick={event => { event.stopPropagation(); onItemClick(item); }}>
+            <i style={{ background: color }} />
+            <span title={item.label}>{item.label}</span>
+            <strong>{fmtN(item.value)}</strong>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ── Period comparison table row ── */
-function CompareRow({ label, oldValue = 0, newValue = 0, money = false, multiple = false }) {
-  const diff = Number(newValue || 0) - Number(oldValue || 0);
-  const pct  = oldValue ? diff / Number(oldValue) * 100 : 0;
-  const fmtV = (v) => {
-    if (multiple) return `${Number(v || 0).toFixed(2)}×`;
-    if (money)    return shortMoney(v);
-    return Number(v || 0).toLocaleString();
+function Gauge({ title, week, value, weighted, onClick, targetKind }) {
+  const tone = (multiple, weightedValue = false) => {
+    if (weightedValue) return multiple >= (targetKind === 'aop' ? 1.5 : 1) ? 'gok' : 'gbad';
+    if (multiple >= (targetKind === 'aop' ? 2.5 : 2)) return 'gok';
+    return multiple >= 1.5 ? 'gwarn' : 'gbad';
   };
   return (
-    <tr>
-      <td>{label}</td>
-      <td className="td2">{fmtV(oldValue)}</td>
-      <td className="td2">{fmtV(newValue)}</td>
-      <td>
-        <span className={diff >= 0 ? 'up' : 'dn'}>
-          {oldValue ? deltaText(pct) : diff >= 0 ? `▲ +${fmtV(diff)}` : `▼ ${fmtV(Math.abs(diff))}`}
-        </span>
-      </td>
+    <button type="button" className="gauge-box pl-gauge-box" onClick={onClick} style={{ width: '100%' }}>
+      <span className="gauge-lbl pl-gauge-lbl">{title}</span>
+      <span className={`gauge-v pl-gauge-v ${tone(value)}`}>{value.toFixed(2)}×</span>
+      <span className="gauge-sub pl-gauge-sub">Unweighted {week}</span>
+      <span className="gauge-sub pl-gauge-sub">Weighted: <b className={tone(weighted, true)}>{weighted.toFixed(2)}×</b></span>
+      <span className="click-hint">🔍 Click → gap analysis</span>
+    </button>
+  );
+}
+
+function CompareRow({ label, oldValue, newValue, format = 'number', change = 'percent', onClick }) {
+  const old = toNumber(oldValue);
+  const current = toNumber(newValue);
+  const difference = current - old;
+  const rising = difference >= 0;
+  const display = value => format === 'money' ? money(value) : format === 'multiple' ? `${toNumber(value).toFixed(2)}×` : toNumber(value).toLocaleString();
+  let changeText = !old ? (current ? '▲ New' : '—') : `${rising ? '▲ +' : '▼ −'}${Math.abs(changePct(current, old)).toFixed(1)}%`;
+  if (change === 'absolute') changeText = `${rising ? '▲ +' : '▼ −'}${Math.abs(difference).toLocaleString()}`;
+  if (change === 'direction') changeText = rising ? '▲ Improving' : '▼ Declining';
+  return (
+    <tr className="clickable-row pl-click-row" onClick={onClick}>
+      <td>{label}</td><td className="td2">{display(old)}</td><td className="td2">{display(current)}</td>
+      <td><span className={rising ? 'up' : 'dn'}>{changeText}</span></td>
     </tr>
   );
 }
 
-/* ── Insight card ── */
-function InsightCard({ title, sub, children, onClick }) {
+function CoverageBreakdown({ kind, aop, target, won, commit, upside, notForecasted, active, weighted }) {
+  const denominator = kind === 'aop' ? aop : target;
+  const name = kind === 'aop' ? 'AOP' : 'Sales Target';
+  const baseCase = won + commit * .8 + upside * .3 + notForecasted * .05;
+  const percent = value => denominator ? value / denominator * 100 : 0;
+  const rows = kind === 'aop'
+    ? [['🟢 Booked', won, '#059669'], ['🔵 Commit (80%)', commit * .8, '#2563eb'], ['🟡 Upside (30%)', upside * .3, '#d97706'], ['🟣 Not Forecasted (5%)', notForecasted * .05, '#7c3aed'], ['📈 Base Case Total', baseCase, '#0891b2'], [`🎯 ${name} Gap (Base Case)`, Math.max(0, denominator - baseCase), '#dc2626']]
+    : [['Booked Revenue', won, '#059669'], ['Active Pipeline (Unweighted)', active, '#2563eb'], ['Active Pipeline (Weighted)', weighted, '#d97706']];
   return (
-    <Card onClick={onClick} clickHint={onClick ? '🔍 Click for details' : undefined}>
-      <div className="pl-card-title">{title}</div>
-      <div className="pl-card-sub">{sub}</div>
-      <ul className="pl-il" style={{ marginTop: 10 }}>{children}</ul>
-    </Card>
+    <div className="pl-coverage-drill">
+      <div className="krow k3" style={{ marginBottom: 14 }}>
+        <div className="kc kg"><span className="kl">Booked (Won)</span><span className="kv">{money(won)}</span><span className="kd up">{percent(won).toFixed(1)}% of {name}</span></div>
+        {kind === 'aop' ? <>
+          <div className="kc kb"><span className="kl">Commit (80% conv.)</span><span className="kv">{money(commit * .8)}</span><span className="kd fl">{percent(commit * .8).toFixed(1)}% of {name}</span></div>
+          <div className="kc ka"><span className="kl">Upside (30% conv.)</span><span className="kv">{money(upside * .3)}</span><span className="kd fl">{percent(upside * .3).toFixed(1)}% of {name}</span></div>
+        </> : <>
+          <div className="kc kb"><span className="kl">Active Pipeline</span><span className="kv">{money(active)}</span><span className="kd fl">{(denominator ? active / denominator : 0).toFixed(2)}× {name}</span></div>
+          <div className="kc kr"><span className="kl">Gap to {name}</span><span className="kv">{money(Math.max(0, denominator - won))}</span><span className="kd dn">Remaining to book</span></div>
+        </>}
+      </div>
+      {rows.map(([label, value, color]) => (
+        <div className="pw" key={label}>
+          <div className="ph"><span className="pn">{label}</span><span className="pv">{money(value)} — {percent(value).toFixed(1)}%</span></div>
+          <div className="pb"><div className="pf" style={{ width: `${Math.min(100, Math.max(0, percent(value)))}%`, background: color }} /></div>
+        </div>
+      ))}
+      <div className="pl-formula-box"><strong>📐 How {kind === 'aop' ? 'Base Case Total' : 'coverage'} is calculated</strong>
+        {kind === 'aop' ? <><span>Base Case = Booked + (Commit × 80%) + (Upside × 30%) + (Not Forecasted × 5%)</span><code>{money(won)} + {money(commit * .8)} + {money(upside * .3)} + {money(notForecasted * .05)} = <b>{money(baseCase)}</b></code></> : <><span>Coverage = Active Pipeline ÷ {name}</span><code>{money(active)} ÷ {money(denominator)} = <b>{(denominator ? active / denominator : 0).toFixed(2)}×</b></code></>}
+      </div>
+    </div>
   );
 }
 
-function ILi({ icon, children }) {
-  return (
-    <li>
-      <span className="pl-ii">{icon}</span>
-      <span>{children}</span>
-    </li>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════ */
-
-function Executive({ data }) {
-  const {
-    kpis, stage_dist, forecast_dist, region_dist,
-    weekly_trend, sector_dist, executive = {}, deals = [],
-  } = data;
-
+function Executive({ data, onNavigate }) {
+  const { kpis = {}, stage_dist = [], forecast_dist = [], region_dist = [], weekly_trend = [], executive = {}, deals = [] } = data || {};
   const { drill, activeDeal, openDrill, closeDrill, openDeal, closeDeal, drillStage } = useDrill();
 
-  /* ── filtered deal sets ── */
-  const ACTIVE_STAGES = ['5% - Prospecting','20%-Discovery','40%-Scoping','60%-Propose','80%-Validate','90%-Negotiate & Close'];
-  const cleanForecast = (deal) => String(deal.forecast_category || '').trim();
-  const isClosedWonForecast = (deal) => ['Closed won', 'closed won'].includes(cleanForecast(deal));
-  const isCommitForecast = (deal) => ['Commit', 'Commit '].includes(cleanForecast(deal));
-  const sumDealAmount = (rows) => rows.reduce((sum, deal) => sum + Number(deal.amount || 0), 0);
-  const activeDeals  = deals.filter(d => ACTIVE_STAGES.includes(d.stage));
-  const wonDeals     = deals.filter(d => d.stage === 'Business Won' || isClosedWonForecast(d));
-  const lostDeals    = deals.filter(d => d.stage === 'Business Lost');
-  const commitDeals  = activeDeals.filter(isCommitForecast);
-  const upsideDeals  = activeDeals.filter(d => cleanForecast(d) === 'Upside');
-  const lateDeals    = deals.filter(d => ['80%-Validate','90%-Negotiate & Close'].includes(d.stage));
+  const metricDeals = deals.filter(deal => toNumber(deal.amount) > 0);
+  const activeDeals = metricDeals.filter(deal => ACTIVE_STAGES.includes(deal.stage));
+  const wonDeals = metricDeals.filter(deal => deal.stage === 'Business Won');
+  const lostDeals = metricDeals.filter(deal => deal.stage === 'Business Lost');
+  const commitDeals = activeDeals.filter(deal => cleanForecast(deal) === 'Commit');
+  const upsideDeals = activeDeals.filter(deal => cleanForecast(deal) === 'Upside');
+  const notForecastedDeals = activeDeals.filter(deal => cleanForecast(deal) === 'Not forecasted');
 
-  const selectedWeek = executive.selected_week_short || data.selected_week || 'Latest';
-  const baselineWeek = executive.baseline_week_short || 'W1';
+  const active = toNumber(kpis.active_pipeline ?? total(activeDeals));
+  const weighted = toNumber(kpis.weighted_pipeline ?? total(activeDeals, 'weighted'));
+  const won = toNumber(kpis.won_ytd ?? total(wonDeals));
+  const lost = toNumber(kpis.lost_ytd ?? total(lostDeals));
+  const commit = toNumber(kpis.commit_pipeline ?? total(commitDeals));
+  const upside = toNumber(kpis.upside_pipeline ?? total(upsideDeals));
+  const aop = toNumber(kpis.aop);
+  const target = toNumber(kpis.sales_target);
+
+  const latestTrend = weekly_trend[weekly_trend.length - 1] || {};
+  const selectedWeek = executive.selected_week_short || (data?.selected_week ? `W${String(data.selected_week).replace(/\D/g, '')}` : `W${latestTrend.week_num || ''}`);
+  const selectedNumber = String(selectedWeek).replace(/\D/g, '') || selectedWeek;
+  const baselineWeek = executive.baseline_week_short || `W${weekly_trend[0]?.week_num || 1}`;
   const previousWeek = executive.previous_week_short || baselineWeek;
+  const period = executive.period_comparison || {};
+  const baseline = period.baseline || weekly_trend[0] || {};
+  const current = period.current || latestTrend;
+  const activeDelta = toNumber(executive.active_change_vs_baseline ?? changePct(active, baseline.active));
+  const commitBaseline = toNumber(weekly_trend[0]?.commit ?? baseline.commit);
+  const coverageAop = aop ? active / aop : 0;
+  const coverageTarget = target ? active / target : 0;
+  const weightedAop = aop ? weighted / aop : 0;
+  const weightedTarget = target ? weighted / target : 0;
+  const movement = executive.movement_counts || {};
+  const spark = key => weekly_trend.map(week => week[key]);
+  const openWeek = row => openDrill(`${row.week || `W${row.week_num}`} Pipeline`, 'Historical snapshot · Click any row for full detail', activeDeals);
+  const openActive = () => openDrill('Active Pipeline — All Active Deals', `Excludes Business Won and Business Lost · ${activeDeals.length} deals · sorted by amount`, activeDeals);
+  const openWon = () => openDrill(`Won Deals — ${wonDeals.length} Deals`, 'All won deals · Click any row for full detail', wonDeals);
+  const openCoverage = kind => {
+    const denominator = kind === 'aop' ? aop : target;
+    const name = kind === 'aop' ? 'AOP' : 'Sales Target';
+    openDrill(`${name} Coverage Analysis`, `${money(denominator)} ${name} vs current pipeline`, null, <CoverageBreakdown kind={kind} aop={aop} target={target} won={won} commit={commit} upside={upside} notForecasted={total(notForecastedDeals)} active={active} weighted={weighted} />);
+  };
 
-  const movement  = executive.movement_counts || {};
-  const period    = executive.period_comparison || {};
-  const baseline  = period.baseline || {};
-  const current   = period.current  || {};
-  const topRep    = executive.top_rep   || {};
-  const topStage  = executive.top_stage || {};
-  const topQuarter1 = executive.top_quarters?.[0];
-  const topQuarter2 = executive.top_quarters?.[1];
-  const topType     = executive.top_types?.[0];
-  const baselineTrend = weekly_trend.find((w) => `W${w.week_num}` === baselineWeek) || weekly_trend[0] || {};
-  const activePipelineValue = Number(kpis.active_pipeline ?? sumDealAmount(activeDeals));
-  const wonYtdValue = Number(kpis.won_ytd ?? sumDealAmount(wonDeals));
-  const lostYtdValue = Number(kpis.lost_ytd ?? sumDealAmount(lostDeals));
-  const commitPipelineValue = Number(kpis.commit_pipeline ?? sumDealAmount(commitDeals));
-  const upsidePipelineValue = Number(kpis.upside_pipeline ?? sumDealAmount(upsideDeals));
-  const activeDealCount = Number(kpis.active_deals ?? activeDeals.length);
-  const wonDealCount = Number(kpis.won_deals ?? wonDeals.length);
-  const lostDealCount = Number(kpis.lost_deals ?? lostDeals.length);
-  const commitDealCount = Number(kpis.commit_deals ?? commitDeals.length);
-  const upsideDealCount = Number(kpis.upside_deals ?? upsideDeals.length);
-  const baselineActiveValue = Number(baselineTrend.active || baseline.active || 0);
-  const activeDelta = baselineActiveValue
-    ? (activePipelineValue - baselineActiveValue) / baselineActiveValue * 100
-    : Number(executive.active_change_vs_baseline || 0);
-  const commitBaselineValue = Number((weekly_trend[0] || {}).commit || baseline.commit || 0);
-  const movementDisplay = selectedWeek === 'W24' && previousWeek === 'W23'
-    ? { total: 1, forward: 0, backward: 0 }
-    : { total: movement.total || 0, forward: movement.forward || 0, backward: movement.backward || 0 };
-
-  const trendActive = weekly_trend.map((w) => ({ value: w.active, label: w.week }));
-  const trendWon    = weekly_trend.map((w) => ({ value: w.won,    label: w.week }));
-  const trendLost   = weekly_trend.map((w) => ({ value: w.lost,   label: w.week }));
-
-  const stageItems = stage_dist.filter(d => d.amount > 0).map((d) => ({ label: d.stage,   value: d.amount }));
-  const fcItems    = forecast_dist.map((d) => ({ label: d.forecast.trim() || 'None', value: d.amount })).slice(0, 6);
-  const regItems   = region_dist.map((d) => ({ label: d.region, value: d.amount }));
-
-  const deltaClass = activeDelta >= 0 ? 'up' : 'dn';
-  const wonAvg     = kpis.won_deals ? kpis.won_ytd / kpis.won_deals : 0;
+  const stageItems = stage_dist.map(item => ({ label: item.stage, value: item.amount, key: item.stage }));
+  const forecastItems = forecast_dist.map(item => ({ label: String(item.forecast || '').trim() || 'None', value: item.amount }));
+  const regionItems = region_dist.map(item => ({ label: item.region || 'Unknown', value: item.amount }));
+  const drillStageDeals = (stage, title = stage) => {
+    const rows = activeDeals.filter(deal => deal.stage === stage);
+    openDrill(`${title} — ${rows.length} Deals`, `All deals in ${stage} stage · Click any row for full detail`, rows);
+  };
 
   return (
-    <>
-      {/* ── Alert banner ── */}
-      <div className="pl-extra-alert">
-        <strong>Every metric, chart, and card is clickable — click to drill into deals.</strong>{' '}
-        Active pipeline <span className={deltaClass}>{deltaText(activeDelta, ` vs ${baselineWeek}`)}</span>.{' '}
-        Won YTD: <strong>{shortMoney(wonYtdValue)} / {wonDealCount} deals</strong>.{' '}
-        {topStage?.stage && <><strong>{topStage.stage}</strong>: {shortMoney(topStage.amount)} / {topStage.count} deals. </>}
-        AOP attainment: <strong>{(wonYtdValue / (kpis.aop || 1) * 100).toFixed(1)}%</strong>.
+    <div className="pl-reference pl-reference-executive">
+      <div className="pl-extra-alert">⚠️ <strong>Every metric, chart, and table is clickable.</strong> Click KPI cards → drill into deals. Click chart bars/segments → see filtered deals. Click any deal row → full deal detail. <strong>Active pipeline {baselineWeek}→{selectedWeek}</strong>. Won YTD: <strong>{money(won)} / {toNumber(kpis.won_deals ?? wonDeals.length)} deals</strong>. AOP attainment: <span>{aop ? (won / aop * 100).toFixed(1) : '0.0'}%</span>.</div>
+
+      <div className="krow" style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+        <KpiCard label={`Active Pipeline ${selectedNumber}`} value={money(active)} delta={`${activeDelta >= 0 ? '▲' : '▼ −'} ${Math.abs(activeDelta).toFixed(1)}% vs ${baselineWeek}`} deltaClass={activeDelta >= 0 ? 'up' : 'dn'} hint={`${toNumber(kpis.active_deals ?? activeDeals.length)} active deals`} color="kb" spark={spark('active')} sparkColor="#0891b2" onClick={openActive} />
+        <KpiCard label="Won YTD" value={money(won)} delta={`▲ ${toNumber(kpis.won_deals ?? wonDeals.length)} deals closed`} deltaClass="up" hint={`${toNumber(kpis.won_deals ?? wonDeals.length)} deals closed YTD`} color="kg" spark={spark('won')} sparkColor="#059669" onClick={openWon} />
+        <KpiCard label="Commit Pipeline" value={money(commit)} delta={commitBaseline ? `▼ from ${money(commitBaseline)} ${baselineWeek}` : 'refreshed'} deltaClass="dn" hint={`${toNumber(kpis.commit_deals ?? commitDeals.length)} deals · needs conversion`} color="ka" onClick={() => openDrill(`Commit Pipeline — ${commitDeals.length} Deals`, 'High confidence deals · Click any row for full detail', commitDeals)} />
+        <KpiCard label="Weighted Pipeline" value={money(weighted)} delta={`${weightedAop.toFixed(2)}× AOP · ${weightedTarget.toFixed(2)}× Target`} deltaClass="pl-purple-text" hint={`Excel Weighted column · ${selectedWeek}`} color="kp" onClick={() => openDrill(`Weighted Pipeline — ${activeDeals.filter(deal => toNumber(deal.weighted) > 0).length} Deals`, `Sorted by Weighted value (Excel) · Weighted Total: ${money(weighted)} · UW Total: ${money(active)}`, activeDeals.filter(deal => toNumber(deal.weighted) > 0))} />
+        <KpiCard label="Upside Pipeline" value={money(upside)} delta="refreshed" hint="Needs conversion focus" color="kp" onClick={() => openDrill(`Upside Pipeline — ${upsideDeals.length} Deals`, 'All Upside forecast deals · Click any row for full detail', upsideDeals)} />
+        <KpiCard label="Lost Pipeline YTD" value={money(lost)} delta={`${toNumber(kpis.lost_deals ?? lostDeals.length)} deals lost`} deltaClass="dn" hint="Accelerating loss rate" color="kr" spark={spark('lost')} sparkColor="#dc2626" onClick={() => openDrill(`Lost Pipeline — ${lostDeals.length} Deals`, 'All deals lost YTD · sorted by amount · Click any row for full detail', lostDeals)} />
+        <KpiCard label={`Stage Movements ${previousWeek}→${selectedWeek}`} value={toNumber(movement.total)} delta={`${toNumber(movement.forward)} fwd, ${toNumber(movement.backward)} bwd`} deltaClass="up" hint="Highest velocity week" color="kc2" onClick={() => onNavigate?.('movement')} clickHint="🔍 Click → movement analysis" />
       </div>
 
-      {/* ── 6 KPI Cards ── */}
-      <div className="pl-kpi-strip">
-        <ExecKpi
-          label={`Active Pipeline ${selectedWeek}`}
-          value={shortMoney(activePipelineValue)}
-          delta={deltaText(activeDelta, ` vs ${baselineWeek}`)}
-          deltaClass={deltaClass}
-          hint={`${activeDealCount} active deals`}
-          color="k-blue"
-          spark={trendActive} sparkColor="#0891b2"
-          onClick={() => openDrill(`Active Pipeline — All Active Deals`, `${activeDeals.length} deals · excludes Won and Lost · sorted by amount`, activeDeals)}
-          clickHint="🔍 Click → see all active deals"
-        />
-        <ExecKpi
-          label="Won YTD"
-          value={shortMoney(wonYtdValue)}
-          delta={`▲ ${wonDealCount} deals closed`}
-          deltaClass="up"
-          hint="3 new deals closed W22→W23"
-          color="k-green"
-          spark={trendWon} sparkColor="#059669"
-          onClick={() => openDrill('Business Won — All Closed Deals YTD', `${wonDeals.length} deals · Click any row for full detail`, wonDeals)}
-          clickHint="🔍 Click → see won deals"
-        />
-        <ExecKpi
-          label="Commit Pipeline"
-          value={shortMoney(commitPipelineValue)}
-          delta={commitBaselineValue ? `▼ from ${shortMoney(commitBaselineValue)} W1` : undefined}
-          deltaClass="dn"
-          hint={`${commitDealCount} deals · needs conversion`}
-          color="k-amber"
-          onClick={() => openDrill('Commit Pipeline — High Confidence Deals', `${commitDealCount} deals with Commit forecast · Click any row for full detail`, commitDeals)}
-          clickHint="🔍 Click → see commit deals"
-        />
-        <ExecKpi
-          label="Upside Pipeline"
-          value={shortMoney(upsidePipelineValue)}
-          delta="refreshed"
-          hint="Needs conversion focus"
-          color="k-purple"
-          onClick={() => openDrill('Upside Pipeline', `${upsideDealCount} Upside forecast deals · Click any row for full detail`, upsideDeals)}
-          clickHint="🔍 Click → see upside deals"
-        />
-        <ExecKpi
-          label="Lost Pipeline YTD"
-          value={shortMoney(lostYtdValue)}
-          delta={`${lostDealCount} deals lost`}
-          deltaClass="dn"
-          hint="Accelerating loss rate"
-          color="k-red"
-          spark={trendLost} sparkColor="#dc2626"
-          onClick={() => openDrill('Business Lost — All Lost Deals YTD', `${lostDeals.length} lost deals · Click any row for full detail`, lostDeals)}
-          clickHint="🔍 Click → see movement data"
-        />
-        <ExecKpi
-          label={`Stage Movements ${previousWeek}→${selectedWeek}`}
-          value={movementDisplay.total}
-          delta={`${movementDisplay.forward} fwd, ${movementDisplay.backward} bwd`}
-          hint="Highest velocity week"
-          color="k-cyan"
-          onClick={() => openDrill(`Late-Stage Pipeline (80%+)`, `Deals closest to closing · Click any row for full detail`, lateDeals)}
-          clickHint="🔍 Click → movement analysis"
-        />
-      </div>
-
-      {/* ── Row 1: Trend + Coverage Gauges ── */}
-      <div className="pl-2col">
-        <Card
-          title={`Pipeline Trend ${baselineWeek}→${selectedWeek} · Active Pipeline`}
-          tag={`${weekly_trend.length} weeks`}
-          onClick={() => openDrill('Active Pipeline — All Active Deals', `${activeDeals.length} deals`, activeDeals)}
-          clickHint="🔍 Click → see all active deals"
-        >
-          <div className="pl-2col" style={{ gap: 12, marginBottom: 8 }}>
-            <div>
-              <div className="pl-small-label">Active Pipeline ($)</div>
-              <LineChart data={trendActive} color="#2563eb" height={160} />
-            </div>
-            <div>
-              <div className="pl-small-label">Won ($)</div>
-              <LineChart data={trendWon} color="#059669" height={160} />
-            </div>
-          </div>
-          <Sparkline data={trendActive} color="#0891b2" />
+      <div className="g2">
+        <Card title={`Pipeline Trend ${weekly_trend[0]?.week_num || 1}–${selectedNumber} · Active Pipeline ($M) ↗ Click to drill`} sub={`vs AOP ${money(aop)} and Sales Target ${money(target)} · hover points for values · all pipeline data`} onClick={openActive} hint="💡 Click any data point → see that week's deals">
+          <TrendChart rows={weekly_trend} aop={aop} target={target} onWeekClick={openWeek} />
+          <div className="pl-chart-legend"><span className="active">— Active Pipeline (UW)</span><span className="weighted">- - Weighted Pipeline</span><span className="won">— Won Cumulative</span><span className="aop">- - AOP</span><span className="target">- - Target</span></div>
         </Card>
-
-        <Card
-          title="Coverage Gauges"
-          tag="Unweighted and weighted"
-          onClick={() => {
-            const aopPct   = kpis.aop    ? kpis.active_pipeline / kpis.aop    * 100 : 0;
-            const tgtPct   = kpis.sales_target ? kpis.active_pipeline / kpis.sales_target * 100 : 0;
-            openDrill(
-              'AOP & Sales Target Coverage Analysis',
-              `${shortMoney(kpis.active_pipeline)} active vs ${shortMoney(kpis.aop)} AOP`,
-              activeDeals,
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'vs AOP', pct: aopPct, target: shortMoney(kpis.aop), color: '#2563eb' },
-                    { label: 'vs Sales Target', pct: tgtPct, target: shortMoney(kpis.sales_target), color: '#7c3aed' },
-                  ].map(g => (
-                    <div key={g.label} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 16px', flex: 1, minWidth: 160 }}>
-                      <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{g.label}</div>
-                      <div style={{ fontSize: 22, fontWeight: 900, color: g.pct >= 200 ? '#059669' : g.pct >= 100 ? '#d97706' : '#dc2626' }}>{g.pct.toFixed(1)}%</div>
-                      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Target: {g.target}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          }}
-          clickHint="🔍 Click → coverage breakdown"
-        >
-          <div className="pl-gauge-row">
-            <GaugeBox
-              title={`vs Sales Target (${shortMoney(kpis.sales_target)})`}
-              multiple={executive.coverage_target_multiple}
-              weightedMultiple={executive.weighted_target_multiple}
-            />
-            <GaugeBox
-              title={`vs AOP (${shortMoney(kpis.aop)})`}
-              multiple={executive.coverage_aop_multiple}
-              weightedMultiple={executive.weighted_aop_multiple}
-            />
-          </div>
-          <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0 12px' }} />
-          <div className="pl-card-title" style={{ marginBottom: 8 }}>Period Comparison</div>
-          <div className="pl-twrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Metric</th><th>{baselineWeek}</th><th>{selectedWeek}</th><th>Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                <CompareRow label="Pipeline UW"   oldValue={baseline.active}           newValue={current.active}           money />
-                <CompareRow label="Active Deals"  oldValue={baseline.count}            newValue={current.count} />
-                <CompareRow label="Avg Deal"      oldValue={baseline.avg_deal_size}    newValue={current.avg_deal_size}    money />
-                <CompareRow label="Won YTD"       oldValue={baseline.won}              newValue={current.won}              money />
-                <CompareRow label="Cov vs Target" oldValue={baseline.coverage_target}  newValue={current.coverage_target}  multiple />
-                <CompareRow label="Cov vs AOP"    oldValue={baseline.coverage_aop}     newValue={current.coverage_aop}    multiple />
-              </tbody>
-            </table>
-          </div>
+        <Card title="Coverage Gauges — Click any gauge to drill" sub="Unweighted and weighted pipeline coverage">
+          <div className="gauge-row pl-gauge-row"><Gauge title={`vs Sales Target (${money(target)})`} week={selectedNumber} value={coverageTarget} weighted={weightedTarget} targetKind="target" onClick={() => openCoverage('target')} /><Gauge title={`vs AOP (${money(aop)})`} week={selectedNumber} value={coverageAop} weighted={weightedAop} targetKind="aop" onClick={() => openCoverage('aop')} /></div>
+          <div className="dv" />
+          <div className="pl-card-title" style={{ marginBottom: 8 }}>Period Comparison — Click rows to drill</div>
+          <div className="pl-twrap"><table><thead><tr><th>Metric</th><th>{baselineWeek}</th><th>{selectedWeek}</th><th>Change</th></tr></thead><tbody>
+            <CompareRow label="Pipeline UW" oldValue={baseline.active} newValue={current.active ?? active} format="money" onClick={openActive} />
+            <CompareRow label="Active Deals" oldValue={baseline.count} newValue={current.count ?? kpis.active_deals} change="absolute" onClick={openActive} />
+            <CompareRow label="Avg Deal Size" oldValue={baseline.avg_deal_size} newValue={current.avg_deal_size ?? kpis.avg_deal_size} format="money" onClick={openActive} />
+            <CompareRow label="Won YTD" oldValue={baseline.won} newValue={current.won ?? won} format="money" onClick={openWon} />
+            <CompareRow label="Cov vs Target" oldValue={baseline.coverage_target} newValue={current.coverage_target ?? coverageTarget} format="multiple" change="direction" onClick={() => openCoverage('target')} />
+            <CompareRow label="Weighted Cov (Target)" oldValue={baseline.weighted_target} newValue={current.weighted_target ?? weightedTarget} format="multiple" change="direction" onClick={() => openCoverage('target')} />
+            <CompareRow label="Cov vs AOP" oldValue={baseline.coverage_aop} newValue={current.coverage_aop ?? coverageAop} format="multiple" change="direction" onClick={() => openCoverage('aop')} />
+            <CompareRow label="Weighted Cov (AOP)" oldValue={baseline.weighted_aop} newValue={current.weighted_aop ?? weightedAop} format="multiple" change="direction" onClick={() => openCoverage('aop')} />
+          </tbody></table></div>
         </Card>
       </div>
 
-      {/* ── Row 2: Stage / Forecast / Region Donuts ── */}
-      <div className="pl-3col">
-        <Card
-          title={`Stage Distribution ${selectedWeek}`}
-          tag={`${stage_dist.length} stages`}
-          onClick={() => openDrill(
-            'Stage Distribution — Click a row to drill',
-            'All active deals by stage',
-            activeDeals,
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {stageItems.map(s => (
-                <button key={s.label} className="sbtn" onClick={() => openDrill(`${s.label} — Deals`, `${deals.filter(d => d.stage === s.label).length} deals`, deals.filter(d => d.stage === s.label))}>
-                  📊 {s.label} ({shortMoney(s.value)})
-                </button>
-              ))}
-            </div>
-          )}
-          clickHint="🔍 Click → stage breakdown"
-        >
-          <DonutChart items={stageItems} radius={55} />
-        </Card>
-        <Card
-          title={`Forecast Mix ${selectedWeek}`}
-          tag={`${forecast_dist.length} categories`}
-          onClick={() => openDrill(
-            'Forecast Category Distribution',
-            'Pipeline by forecast category',
-            activeDeals,
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {fcItems.map(f => (
-                <button key={f.label} className="sbtn" onClick={() => openDrill(`${f.label} — Deals`, `${deals.filter(d => (d.forecast_category || '').trim() === f.label.trim()).length} deals`, deals.filter(d => (d.forecast_category || '').trim() === f.label.trim()))}>
-                  🔮 {f.label} ({shortMoney(f.value)})
-                </button>
-              ))}
-            </div>
-          )}
-          clickHint="🔍 Click → forecast breakdown"
-        >
-          <DonutChart items={fcItems} radius={55} />
-        </Card>
-        <Card
-          title={`Region Split ${selectedWeek}`}
-          tag={`${region_dist.length} regions`}
-          onClick={() => openDrill(
-            'Region Distribution',
-            'Pipeline split by region',
-            activeDeals,
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {regItems.map(r => (
-                <button key={r.label} className="sbtn" onClick={() => openDrill(`${r.label} — Deals`, `${deals.filter(d => d.region === r.label).length} deals`, deals.filter(d => d.region === r.label))}>
-                  🌍 {r.label} ({shortMoney(r.value)})
-                </button>
-              ))}
-            </div>
-          )}
-          clickHint="🔍 Click → region breakdown"
-        >
-          <DonutChart items={regItems} radius={55} />
-        </Card>
+      <div className="g3">
+        <Card title={`Stage Distribution ${selectedWeek} ↗ Click segment`} sub="Click any segment → deals in that stage"><Donut items={stageItems} onItemClick={item => drillStageDeals(item.key)} /></Card>
+        <Card title={`Forecast Mix ${selectedWeek} ↗ Click segment`} sub="Click any segment → deals in that category"><Donut items={forecastItems} onItemClick={item => { const rows = activeDeals.filter(deal => cleanForecast(deal) === item.label); openDrill(`${item.label} Pipeline — ${rows.length} Deals`, `All ${item.label} forecast deals · Click any row for full detail`, rows); }} /></Card>
+        <Card title={`Region Split ${selectedWeek} ↗ Click segment`} sub="Click any segment → deals in that region"><Donut items={regionItems} onItemClick={item => { const rows = activeDeals.filter(deal => (deal.region || 'Unknown') === item.label); openDrill(`${item.label} — ${rows.length} Deals`, `All ${item.label} active deals · Click any row for full detail`, rows); }} /></Card>
       </div>
 
-      {/* ── Row 3: CFO / CRO Insights ── */}
-      <div className="pl-2col">
-        <InsightCard
-          title="🎯 CFO & Finance"
-          sub={`Financial perspective · ${selectedWeek}`}
-          onClick={() => openDrill('Late-Stage Pipeline (80%+)', `${lateDeals.length} deals closest to closing`, lateDeals)}
-        >
-          <ILi icon="✅">
-            <strong>Unweighted pipeline {(executive.coverage_aop_multiple || 0).toFixed(2)}× AOP</strong>
-            {' '}— {shortMoney(kpis.active_pipeline)} active vs {shortMoney(kpis.aop)} target.
-          </ILi>
-          <ILi icon="⚠️">
-            <strong>Commit pipeline {shortMoney(kpis.commit_pipeline)}</strong>
-            {' '}— {kpis.commit_deals} deals requiring conversion discipline.
-          </ILi>
-          <ILi icon="💰">
-            <strong>{shortMoney(kpis.won_ytd)} won YTD</strong>
-            {' '}({kpis.won_deals} deals) — avg {shortMoney(wonAvg)} per deal.
-          </ILi>
-          {topQuarter1 && (
-            <ILi icon="📅">
-              <strong>{topQuarter1.quarter} pipeline: {shortMoney(topQuarter1.amount)}</strong>
-              {' '}— {topQuarter1.count} deals.
-            </ILi>
-          )}
-          {topQuarter2 && (
-            <ILi icon="📅">
-              <strong>{topQuarter2.quarter} pipeline: {shortMoney(topQuarter2.amount)}</strong>
-              {' '}— {topQuarter2.count} deals.
-            </ILi>
-          )}
-          <ILi icon="🔴">
-            <strong>Late-stage (80%+) {shortMoney(executive.late_stage_amount || 0)}</strong>
-            {' '}— {executive.late_stage_count || 0} deals. Prioritize validation.
-          </ILi>
-        </InsightCard>
-
-        <InsightCard
-          title="🏆 CRO & Sales"
-          sub={`Sales perspective · ${selectedWeek}`}
-          onClick={() => openDrill('Active Pipeline — All Active Deals', `${activeDeals.length} deals`, activeDeals)}
-        >
-          <ILi icon="🥇">
-            <strong>{topRep.owner || 'Top rep'} leads at {shortMoney(topRep.pipeline || 0)}</strong>
-            {' '}({topRep.deals || 0} deals) —{' '}
-            {kpis.active_pipeline ? ((topRep.pipeline || 0) / kpis.active_pipeline * 100).toFixed(1) : 0}% of active pipeline.
-          </ILi>
-          <ILi icon="🔄">
-            <strong>Stage movements {previousWeek}→{selectedWeek}: {movement.total || 0}</strong>
-            {' '}— {movement.forward || 0} forward, {movement.backward || 0} backward.
-          </ILi>
-          <ILi icon="🚨">
-            <strong>80%+ stage {shortMoney(executive.late_stage_amount || 0)} ({executive.late_stage_count || 0} deals)</strong>
-            {' '}— prioritize validation and negotiate.
-          </ILi>
-          <ILi icon="🎯">
-            <strong>{topStage?.stage || 'Largest stage'}: {shortMoney(topStage?.amount || 0)}</strong>
-            {' '}— {topStage?.count || 0} deals.
-          </ILi>
-          {topType && (
-            <ILi icon="📦">
-              <strong>{topType.type}: {shortMoney(topType.amount)}</strong>
-              {' '}({topType.count} deals) — largest order-type segment.
-            </ILi>
-          )}
-          <ILi icon="💡">
-            <strong>Lost pipeline YTD: {shortMoney(kpis.lost_ytd)}</strong>
-            {' '}({kpis.lost_deals} deals) — review loss reasons.
-          </ILi>
-        </InsightCard>
-      </div>
-
-      {/* ── Row 4: Sector bars ── */}
-      <Card
-        title="By Sector"
-        tag={`${sector_dist.length} sectors`}
-        onClick={() => openDrill(
-          'Pipeline by Sector',
-          'All active deals grouped by sector',
-          activeDeals,
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-            {sector_dist.slice(0, 8).map(s => (
-              <button key={s.sector} className="sbtn" onClick={() => openDrill(`${s.sector} — Deals`, `${deals.filter(d => d.sector === s.sector).length} deals`, deals.filter(d => d.sector === s.sector))}>
-                🏭 {s.sector} ({shortMoney(s.amount)})
-              </button>
-            ))}
-          </div>
-        )}
-        clickHint="🔍 Click → sector breakdown"
-      >
-        <HBarChart items={sector_dist.map((d) => ({ label: d.sector, value: d.amount })).slice(0, 8)} />
-      </Card>
-
-      {/* ── Drill & Deal Modals ── */}
-      {drill && (
-        <DrillModal
-          title={drill.title}
-          sub={drill.sub}
-          deals={drill.deals}
-          onClose={closeDrill}
-          onDealClick={openDeal}
-        >
-          {drill.children}
-        </DrillModal>
-      )}
-      {activeDeal && (
-        <DealModal
-          deal={activeDeal}
-          onClose={closeDeal}
-          onDrillStage={(stage) => drillStage(stage, deals)}
-        />
-      )}
-    </>
+      {drill && <DrillModal title={drill.title} sub={drill.sub} deals={drill.deals} onClose={closeDrill} onDealClick={openDeal}>{drill.children}</DrillModal>}
+      {activeDeal && <DealModal deal={activeDeal} onClose={closeDeal} onDrillStage={stage => drillStage(stage, metricDeals)} />}
+    </div>
   );
 }
 

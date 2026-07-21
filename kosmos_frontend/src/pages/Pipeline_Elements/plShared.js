@@ -137,7 +137,7 @@ export function DonutChart({ items = [], radius = 70 }) {
     const mx2 = cx + r * Math.cos(angle), my2 = cy + r * Math.sin(angle);
     return {
       d: `M${x1},${y1} A${R},${R} 0 ${laf},1 ${x2},${y2} L${mx2},${my2} A${r},${r} 0 ${laf},0 ${mx1},${my1}Z`,
-      color: DONUT_COLORS[idx % DONUT_COLORS.length],
+      color: item.color || DONUT_COLORS[idx % DONUT_COLORS.length],
       item,
     };
   });
@@ -145,17 +145,14 @@ export function DonutChart({ items = [], radius = 70 }) {
   return (
     <div className="pl-donut-wrap">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-        {arcs.map((a, i) => <path key={i} d={a.d} fill={a.color} stroke="#fff" strokeWidth="1.5" />)}
-        <text x={cx} y={cy + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#111">
-          {`${((items[0]?.value / total) * 100).toFixed(0)}%`}
-        </text>
+        {arcs.map((a, i) => <path key={i} d={a.d} fill={a.color} stroke="#fff" strokeWidth="1.5" onClick={(event) => { event.stopPropagation(); a.item.onClick?.(); }} style={{ cursor: a.item.onClick ? 'pointer' : 'default' }} />)}
       </svg>
       <div className="pl-donut-legend">
         {arcs.map((a, i) => (
-          <div key={i} className="pl-donut-legend-row">
+          <div key={i} className="pl-donut-legend-row" onClick={(event) => { event.stopPropagation(); a.item.onClick?.(); }} style={{ cursor: a.item.onClick ? 'pointer' : 'default' }}>
             <div className="pl-donut-dot" style={{ background: a.color }} />
             <span style={{ fontSize: 11, color: '#374151' }}>{a.item.label || a.item.stage || a.item.forecast || a.item.region || a.item.sector}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 'auto', paddingLeft: 8 }}>{fmtN(a.item.value)}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 'auto', paddingLeft: 8 }}>{a.item.displayValue ?? fmtN(a.item.value)}</span>
           </div>
         ))}
       </div>

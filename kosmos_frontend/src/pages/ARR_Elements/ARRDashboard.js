@@ -123,11 +123,11 @@ function computeFiltered(deals, allMonths, latestMonth, from, to) {
   return { arr, chg };
 }
 
-function buildReferenceView(records) {
+function buildReferenceView(records, periodInfo = {}) {
   const ref = buildReferenceData(records);
   const { deals, allMonths, latestMonth, monthlyArr } = ref;
-  const from = latestMonth ? `${latestMonth.slice(0, 4)}-01` : '';
-  const to = latestMonth;
+  const from = periodInfo.from || (latestMonth ? `${latestMonth.slice(0, 4)}-01` : '');
+  const to = periodInfo.to || latestMonth;
   const comp = computeFiltered(deals, allMonths, latestMonth, from, to);
   const months = Object.keys(comp.arr).filter((m) => !latestMonth || m <= latestMonth).sort();
   const latest = months.at(-1) || latestMonth;
@@ -986,7 +986,7 @@ function makeKpiDetails(ref) {
       ],
     },
     change: {
-      title: 'YTD Change',
+      title: `${ref.periodLabel} Change`,
       formula: 'Closing ARR - Period Start ARR',
       big: dSign(ref.periodChange),
       color: ref.periodChange >= 0 ? '#15803d' : '#b91c1c',
@@ -995,7 +995,7 @@ function makeKpiDetails(ref) {
         { label: 'Change %', value: `${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`, color: ref.periodChange >= 0 ? '#15803d' : '#b91c1c' },
         { label: 'Won - Lost', value: `${fmt(ref.pNew + ref.pUp)} - ${fmt(Math.abs(ref.pChurn) + ref.pDn)}`, color: '#0891b2' },
       ],
-      insight: 'YTD Change explains whether the ARR base is expanding or contracting during the period.',
+      insight: `${ref.periodLabel} Change explains whether the ARR base is expanding or contracting during the period.`,
       benchmark: 'Positive growth is healthy; negative movement requires churn and downsell review.',
       sections: [
         { title: 'Biggest customer movers', color: '#1e5fa8', items: modalBarItems(Object.entries(mom.customer), '#1e5fa8', true, 8) },
@@ -1003,7 +1003,7 @@ function makeKpiDetails(ref) {
       ],
     },
     new: {
-      title: 'YTD New ARR',
+      title: `${ref.periodLabel} New ARR`,
       formula: 'Sum of monthly New movements in the selected period',
       big: fmtFull(ref.pNew),
       color: '#059669',
@@ -1017,7 +1017,7 @@ function makeKpiDetails(ref) {
       ],
     },
     upsell: {
-      title: 'YTD Upsell',
+      title: `${ref.periodLabel} Upsell`,
       formula: 'Sum of monthly Upsell movements in the selected period',
       big: fmtFull(ref.pUp),
       color: '#0891b2',
@@ -1031,7 +1031,7 @@ function makeKpiDetails(ref) {
       ],
     },
     churn: {
-      title: 'YTD Churn',
+      title: `${ref.periodLabel} Churn`,
       formula: 'Absolute value of monthly Churn movements',
       big: fmtFull(Math.abs(ref.pChurn)),
       color: '#dc2626',
@@ -1045,7 +1045,7 @@ function makeKpiDetails(ref) {
       ],
     },
     downsell: {
-      title: 'YTD Downsell',
+      title: `${ref.periodLabel} Downsell`,
       formula: 'Absolute value of monthly Downsell movements',
       big: fmtFull(ref.pDn),
       color: '#d97706',
@@ -1059,13 +1059,13 @@ function makeKpiDetails(ref) {
       ],
     },
     growth: {
-      title: 'YTD Growth',
+      title: `${ref.periodLabel} Growth`,
       formula: '(Closing ARR - Period Start ARR) / Period Start ARR',
       big: `${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`,
       color: ref.periodChangePct >= 0 ? '#15803d' : '#b91c1c',
       stats: [...baseStats, { label: 'Won ARR', value: fmtFull(ref.pNew + ref.pUp), color: '#15803d' }, { label: 'Lost ARR', value: fmtFull(Math.abs(ref.pChurn) + ref.pDn), color: '#b91c1c' }],
       insight: 'Growth combines new, upsell, churn, and downsell into the period ARR outcome.',
-      benchmark: 'Positive YTD growth indicates net expansion of the ARR base.',
+      benchmark: `Positive ${ref.periodLabel} growth indicates net expansion of the ARR base.`,
       sections: [
         { title: 'Biggest movers driving growth', color: '#1e5fa8', items: modalBarItems(Object.entries(mom.customer), '#1e5fa8', true, 8) },
       ],
@@ -1103,7 +1103,7 @@ function makeKpiDetails(ref) {
 function ArrDashTab({ data }) {
   const records = useMemo(() => data.records || [], [data.records]);
   const ref = useMemo(() => {
-    const base = buildReferenceView(records);
+    const base = buildReferenceView(records, data.period || {});
     const kpis = data.kpis || {};
     const apiTrend = data.trend || [];
 
@@ -1123,9 +1123,11 @@ function ArrDashTab({ data }) {
     const periodChange = curr - ltmOpening;
     const periodChangePct = ltmOpening > 0 ? (periodChange / ltmOpening) * 100 : 0;
 
-    const from = apiLatest ? `${apiLatest.slice(0, 4)}-01` : base.from;
-    const to = apiLatest;
+    const from = data.period?.from || base.from;
+    const to = data.period?.to || apiLatest;
     const allRangeMonths = base.allMonths.filter(m => (!from || m >= from) && (!to || m <= to));
+    const periodValue = String(data.period?.value || 'ytd').toLowerCase();
+    const periodLabel = periodValue === 'custom' ? 'Period' : periodValue.toUpperCase();
 
     const trend = apiTrend
       .filter(t => Number(t.value) > 0)
@@ -1153,6 +1155,7 @@ function ArrDashTab({ data }) {
       from,
       to,
       allRangeMonths,
+      periodLabel,
     };
   }, [records, data]);
   const [sortField, setSortField] = useState('curr_arr');
@@ -1250,31 +1253,31 @@ function ArrDashTab({ data }) {
           <KpiCard label="Total ARR" value={fmt(ref.curr)} sub={`Closing as of ${ref.latest || 'latest month'}`} variant={1} detail={details.total} icon="💰"
           />
         </DevOverlay>
-        <DevOverlay name="KPI: YTD Change">
-          <KpiCard label="YTD Change" value={`${ref.periodChange >= 0 ? '+' : ''}${fmt(ref.periodChange)}`} delta={`${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`} sub="vs period start" variant={2} detail={details.change} icon="📈"
+        <DevOverlay name={`KPI: ${ref.periodLabel} Change`}>
+          <KpiCard label={`${ref.periodLabel} Change`} value={`${ref.periodChange >= 0 ? '+' : ''}${fmt(ref.periodChange)}`} delta={`${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`} sub="vs period start" variant={2} detail={details.change} icon="📈"
           />
         </DevOverlay>
-        <DevOverlay name="KPI: YTD New ARR">
-          <KpiCard label="YTD New ARR" value={fmt(ref.pNew)} sub="New logos and first-time bookings" variant={3} detail={details.new} icon="🆕"
+        <DevOverlay name={`KPI: ${ref.periodLabel} New ARR`}>
+          <KpiCard label={`${ref.periodLabel} New ARR`} value={fmt(ref.pNew)} sub="New logos & first-time bookings" variant={3} detail={details.new} icon="🆕"
           />
         </DevOverlay>
-        <DevOverlay name="KPI: YTD Upsell">
-          <KpiCard label="YTD Upsell" value={fmt(ref.pUp)} sub="Expansion from existing customers" variant={4} detail={details.upsell} icon="⬆"
+        <DevOverlay name={`KPI: ${ref.periodLabel} Upsell`}>
+          <KpiCard label={`${ref.periodLabel} Upsell`} value={fmt(ref.pUp)} sub="Expansion from existing customers" variant={4} detail={details.upsell} icon="⬆"
           />
         </DevOverlay>
-        <DevOverlay name="KPI: YTD Churn">
-          <KpiCard label="YTD Churn" value={fmt(Math.abs(ref.pChurn))} sub="Lost ARR from cancellations" variant={5} detail={details.churn} icon="🔴"
+        <DevOverlay name={`KPI: ${ref.periodLabel} Churn`}>
+          <KpiCard label={`${ref.periodLabel} Churn`} value={fmt(Math.abs(ref.pChurn))} sub="Lost ARR from cancellations" variant={5} detail={details.churn} icon="🔴"
           />
         </DevOverlay>
-        <DevOverlay name="KPI: YTD Downsell">
-          <KpiCard label="YTD Downsell" value={fmt(ref.pDn)} sub="Contraction from existing customers" variant={6} detail={details.downsell} icon="🔙"
+        <DevOverlay name={`KPI: ${ref.periodLabel} Downsell`}>
+          <KpiCard label={`${ref.periodLabel} Downsell`} value={fmt(ref.pDn)} sub="Contraction from existing customers" variant={6} detail={details.downsell} icon="🔙"
           />
         </DevOverlay>
       </div>
 
       <div className="arr-metric-row">
-        <DevOverlay name="YTD Growth">
-          <MetricCard label="YTD Growth" value={`${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`} sub={`vs period start | Won: ${fmt(ref.pNew + ref.pUp)} | Lost: ${fmt(Math.abs(ref.pChurn) + ref.pDn)}`} icon="📈" color={ref.periodChangePct >= 0 ? '#15803d' : '#b91c1c'} detail={details.growth} />
+        <DevOverlay name={`${ref.periodLabel} Growth`}>
+          <MetricCard label={`${ref.periodLabel} Growth`} value={`${ref.periodChangePct >= 0 ? '+' : ''}${ref.periodChangePct.toFixed(1)}%`} sub={`vs period start | Won: ${fmt(ref.pNew + ref.pUp)} | Lost: ${fmt(Math.abs(ref.pChurn) + ref.pDn)}`} icon="📈" color={ref.periodChangePct >= 0 ? '#15803d' : '#b91c1c'} detail={details.growth} />
         </DevOverlay>
         <DevOverlay name="GRR% Gross Revenue Retention">
           <MetricCard label="GRR% — Gross Revenue Retention" value={`${ref.grr.toFixed(1)}%`} sub={`Retention excl. upsell | Churn+DS: ${fmt(Math.abs(ref.pChurn) + ref.pDn)}`} icon="🛡️" color={ref.grr >= 90 ? '#15803d' : ref.grr >= 75 ? '#d97706' : '#b91c1c'} detail={details.grr} />
@@ -1286,15 +1289,15 @@ function ArrDashTab({ data }) {
 
       <div className="arr-2col arr-reference-gauges" style={{ gridTemplateColumns: '1fr 1fr' }}>
         <DevOverlay name="GRR Gauge Chart">
-          <div className="arr-chart-card arr-gauge-card">
+          <div className="arr-chart-card arr-gauge-card arr-gauge-grr">
             <div className="arr-chart-title">GRR% - Gross Revenue Retention</div>
-            <GaugeChart value={ref.ltmGrr} label="Retention excl. upsell · Churn+DS impact" color="#7c3aed" maxVal={150} />
+            <GaugeChart value={ref.grr} label="Retention excl. upsell · Churn+DS impact" color="#7c3aed" maxVal={150} />
           </div>
         </DevOverlay>
         <DevOverlay name="NRR Gauge Chart">
-          <div className="arr-chart-card arr-gauge-card">
+          <div className="arr-chart-card arr-gauge-card arr-gauge-nrr">
             <div className="arr-chart-title">NRR% - Net Revenue Retention</div>
-            <GaugeChart value={ref.ltmNrr} label="Incl. upsell · >100% = existing base growing" color="#0891b2" maxVal={150} />
+            <GaugeChart value={ref.nrr} label="Incl. upsell · >100% = existing base growing" color="#0891b2" maxVal={150} />
           </div>
         </DevOverlay>
       </div>

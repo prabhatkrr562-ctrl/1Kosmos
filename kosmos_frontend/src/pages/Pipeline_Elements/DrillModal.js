@@ -25,6 +25,13 @@ function RiskBadge({ daysOpen }) {
   return <span className="b bg">✅ Low</span>;
 }
 
+function StallRiskBadge({ score }) {
+  if (score >= 70) return <span className="b br">🔴 Critical</span>;
+  if (score >= 50) return <span className="b bo">🟠 High</span>;
+  if (score >= 30) return <span className="b ba">🟡 Medium</span>;
+  return <span className="b bg">🟢 Low</span>;
+}
+
 /* ── Scrollable deal table ── */
 export function DealTable({ deals, onDealClick }) {
   const total  = deals.reduce((s, d) => s + (d.amount || 0), 0);
@@ -80,6 +87,11 @@ export function DealTable({ deals, onDealClick }) {
 export function DealModal({ deal, onClose, onDrillStage }) {
   if (!deal) return null;
 
+  const dealName = deal.deal_name || deal.name || 'Unnamed deal';
+  const company = deal.company || '—';
+  const stage = deal.stage || deal.to_stage || '—';
+  const forecast = deal.forecast_category || deal.forecast || '—';
+
   const STAGE_COL = {
     '5% - Prospecting': '#6b7280', '20%-Discovery': '#0891b2',
     '40%-Scoping': '#2563eb',      '60%-Propose':   '#7c3aed',
@@ -92,8 +104,8 @@ export function DealModal({ deal, onClose, onDrillStage }) {
       <div className="deal-panel">
         <div className="deal-header">
           <div>
-            <div className="deal-title">{deal.deal_name}</div>
-            <div className="deal-company">{deal.company || '—'}</div>
+            <div className="deal-title">{dealName}</div>
+            <div className="deal-company">{company}</div>
           </div>
           <button className="drill-close" onClick={onClose}>✕</button>
         </div>
@@ -109,13 +121,13 @@ export function DealModal({ deal, onClose, onDrillStage }) {
             </div>
             <div className="dd-field">
               <div className="dd-label">Deal Stage</div>
-              <div className="dd-value" style={{ color: STAGE_COL[deal.stage] || '#374151' }}>
-                {deal.stage}
+              <div className="dd-value" style={{ color: STAGE_COL[stage] || '#374151' }}>
+                {stage}
               </div>
             </div>
             <div className="dd-field">
               <div className="dd-label">Forecast Category</div>
-              <div className="dd-value">{deal.forecast_category || '—'}</div>
+              <div className="dd-value">{forecast}</div>
             </div>
             <div className="dd-field">
               <div className="dd-label">Deal Owner</div>
@@ -150,13 +162,19 @@ export function DealModal({ deal, onClose, onDrillStage }) {
               <div className="dd-value"><AgeBadge days={deal.days_open} /></div>
             </div>
             <div className="dd-field">
-              <div className="dd-label">Days Since Last Activity</div>
-              <div className="dd-value"><StaleBadge days={deal.days_stale} /></div>
+              <div className="dd-label">{deal.days_stuck != null ? 'Days Stuck at Current Stage' : 'Days Since Last Activity'}</div>
+              <div className="dd-value"><StaleBadge days={deal.days_stuck ?? deal.days_stale} /></div>
             </div>
             <div className="dd-field">
-              <div className="dd-label">Risk Level</div>
-              <div className="dd-value"><RiskBadge daysOpen={deal.days_open} /></div>
+              <div className="dd-label">{deal.days_stuck != null ? 'Stage Stall Risk' : 'Risk Level'}</div>
+              <div className="dd-value">{deal.days_stuck != null ? <StallRiskBadge score={deal.urgency_score} /> : <RiskBadge daysOpen={deal.days_open} />}</div>
             </div>
+            {deal.days_stuck != null && (
+              <div className="dd-field">
+                <div className="dd-label">Stuck Since</div>
+                <div className="dd-value">{deal.stuck_since || '—'}</div>
+              </div>
+            )}
           </div>
 
           {deal.next_step && (
@@ -168,13 +186,22 @@ export function DealModal({ deal, onClose, onDrillStage }) {
             </div>
           )}
 
+          {deal.recommended_action && (
+            <div className="dd-field" style={{ marginBottom: 14 }}>
+              <div className="dd-label">Recommended Action</div>
+              <div className="dd-value" style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.55 }}>
+                {deal.recommended_action}
+              </div>
+            </div>
+          )}
+
           <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12, marginTop: 4 }}>
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
               Quick Actions — click to drill further:
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="sbtn" onClick={() => onDrillStage(deal.stage)}>
-                📊 All {deal.stage} Deals
+              <button className="sbtn" onClick={() => onDrillStage(stage)}>
+                📊 All {stage} Deals
               </button>
             </div>
           </div>
